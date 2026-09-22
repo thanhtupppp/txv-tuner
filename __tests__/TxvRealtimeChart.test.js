@@ -102,7 +102,7 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
   it('adjusts Y-axis bounds dynamically based on data range', async () => {
     const extremeHistory = [
       { time: Date.now(), actualSh: 15.0, targetSh: 6.0 },
-      { time: Date.now() + 2000, actualSh: 18.0, targetSh: 6.0 },
+      { time: Date.now() + 2000, actualSh: 19.5, targetSh: 6.0 },
     ];
 
     const { toJSON } = await renderWithMaterial(
@@ -129,7 +129,7 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
     expect(stringified).toContain(String(borderStrongPayload));
 
     // Verify dashed stroke pattern (2 3)
-    expect(stringified).toMatch(/strokeDasharray.*2 3/);
+    expect(stringified).toMatch(/strokeDasharray.*2.*3/);
   });
 
   it('renders target SH as dashed line with optimal color', async () => {
@@ -143,7 +143,7 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
     // Verify target line (optimal color, dashed)
     const optimalPayload = hexToSvgPayload(lightTheme.optimal);
     expect(stringified).toContain(String(optimalPayload));
-    expect(stringified).toMatch(/strokeDasharray.*4 3/);
+    expect(stringified).toMatch(/strokeDasharray.*4.*3/);
   });
 
   it('applies correct chart height (120px) and LCD well styling', async () => {

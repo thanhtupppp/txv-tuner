@@ -53,7 +53,7 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: theme.optimal }]} />
-            <Text style={[styles.legendText, { color: theme.inkMuted }]}>Target SH ({targetSh}K)</Text>
+            <Text style={[styles.legendText, { color: theme.inkMuted }]}>Target SH ({typeof targetSh === 'number' ? targetSh.toFixed(1) : targetSh}K)</Text>
           </View>
         </View>
       </View>
@@ -101,7 +101,7 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
             />
           ) : null}
 
-          {/* NhÃ£n trá » ¥c Y: Font MONO 10px mÃ¡u screenMuted */}
+          {/* Nhãn trục Y: Font MONO 10px màu screenMuted */}
           {ticks.map(tick => (
             <SvgText
               key={tick}
@@ -112,7 +112,7 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
               fontFamily={MONO}
               fontWeight="bold"
             >
-              {tick}K
+              {`${tick}K`}
             </SvgText>
           ))}
         </Svg>
@@ -120,6 +120,8 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
     </SkeuoPanel>
   );
 }
+
+export default TxvRealtimeChart;
 
 const styles = StyleSheet.create({
   card: {
