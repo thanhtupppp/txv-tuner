@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Vibration, Platform } from 'react-native';
 import { tempToPressure } from '../data/danfossData';
 import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell, SkeuoLed, SkeuoButton } from '../components/SkeuoKit';
@@ -14,6 +14,11 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
   const adjustTemp = (delta) => {
     setCondTemp((prev) => {
       const next = Math.max(20, Math.min(65, Number((prev + delta).toFixed(1))));
+      if ((next <= 20 || next >= 65) && Platform.OS !== 'web') {
+        try {
+          Vibration.vibrate(25);
+        } catch {}
+      }
       return next;
     });
   };
@@ -38,6 +43,7 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
           disabled={isMin}
           accessibilityLabel="Giảm 5 độ C"
+          accessibilityHint={isMin ? 'Đã đạt giới hạn tối thiểu 20°C' : undefined}
           onPress={() => adjustTemp(-5)}
         >
           <Text style={[styles.stepBtnText, { color: theme.ink }]}>-5°C</Text>
@@ -47,6 +53,7 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
           disabled={isMin}
           accessibilityLabel="Giảm 1 độ C"
+          accessibilityHint={isMin ? 'Đã đạt giới hạn tối thiểu 20°C' : undefined}
           onPress={() => adjustTemp(-1)}
         >
           <Text style={[styles.stepBtnText, { color: theme.ink }]}>-1°C</Text>
@@ -69,6 +76,7 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
           disabled={isMax}
           accessibilityLabel="Tăng 1 độ C"
+          accessibilityHint={isMax ? 'Đã đạt giới hạn tối đa 65°C' : undefined}
           onPress={() => adjustTemp(1)}
         >
           <Text style={[styles.stepBtnText, { color: theme.ink }]}>+1°C</Text>
@@ -78,6 +86,7 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
           disabled={isMax}
           accessibilityLabel="Tăng 5 độ C"
+          accessibilityHint={isMax ? 'Đã đạt giới hạn tối đa 65°C' : undefined}
           onPress={() => adjustTemp(5)}
         >
           <Text style={[styles.stepBtnText, { color: theme.ink }]}>+5°C</Text>
@@ -86,6 +95,8 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
     </SkeuoPanel>
   );
 }
+
+export default SimCondPanel;
 
 const styles = StyleSheet.create({
   card: {
