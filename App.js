@@ -33,14 +33,22 @@ export default function App() {
             {activeTab === 'monitor' && <MonitorScreen sensors={sensors} deltaAir={data?.deltaAir} history={history} themeMode={themeMode} />}
           </View>
           <View accessibilityRole="tablist" style={[styles.bottomNav, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-            {[{ id: 'txv', icon: 'tune', label: 'Chỉnh TXV' }, { id: 'monitor', icon: 'chart', label: 'Giám sát' }].map(tab => (
-              <SkeuoButton key={tab.id} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.id }}
-                style={[styles.tabButton, activeTab === tab.id && { backgroundColor: theme.surfaceInset, borderColor: theme.accent, borderBottomWidth: 3 }]}
-                onPress={() => setActiveTab(tab.id)}>
-                <InstrumentIcon name={tab.icon} color={activeTab === tab.id ? theme.accent : theme.inkMuted} />
-                <Text style={[styles.tabTitle, { color: activeTab === tab.id ? theme.accent : theme.inkMuted }]}>{tab.label}</Text>
-              </SkeuoButton>
-            ))}
+            {[{ id: 'txv', icon: 'tune', label: 'Chỉnh TXV' }, { id: 'monitor', icon: 'chart', label: 'Giám sát' }].map(tab => {
+              const isSelected = activeTab === tab.id;
+              return (
+                <SkeuoButton key={tab.id} accessibilityRole="tab" accessibilityState={{ selected: isSelected }}
+                  style={[
+                    styles.tabButton,
+                    isSelected
+                      ? { borderColor: theme.accent, borderBottomWidth: 3, borderBottomColor: theme.accent }
+                      : { elevation: 0, shadowOpacity: 0, borderColor: theme.border, borderBottomWidth: 1 }
+                  ]}
+                  onPress={() => setActiveTab(tab.id)}>
+                  <InstrumentIcon name={tab.icon} color={isSelected ? theme.accent : theme.inkMuted} />
+                  <Text style={[styles.tabTitle, { color: isSelected ? theme.accent : theme.inkMuted }]}>{tab.label}</Text>
+                </SkeuoButton>
+              );
+            })}
           </View>
         </SafeAreaView>
       </MaterialProvider>

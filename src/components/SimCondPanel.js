@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { tempToPressure } from '../data/danfossData';
 import { MONO } from '../constants/theme';
-import { useMaterial, SkeuoButton } from '../components/SkeuoKit';
+import { useMaterial, SkeuoPanel, SkeuoLcdWell, SkeuoLed, SkeuoButton } from '../components/SkeuoKit';
 
 export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
   const { theme } = useMaterial();
   const refId = currentRef?.id || 'R404A';
   const pCond = typeof tempToPressure === 'function' ? tempToPressure(condTemp, refId) : '--';
+  const isMin = condTemp <= 20;
+  const isMax = condTemp >= 65;
 
   const adjustTemp = (delta) => {
     setCondTemp((prev) => {
@@ -17,7 +19,7 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+    <SkeuoPanel style={styles.card}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.ink }]}>
           🔥 Nhiệt độ ngưng tụ dàn nóng (T_cond): <Text style={{ color: theme.warning }}>{condTemp.toFixed(1)}°C</Text>
@@ -34,7 +36,7 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
       <View style={styles.controlsRow}>
         <SkeuoButton
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
-          disabled={condTemp <= 20}
+          disabled={isMin}
           accessibilityLabel="Giảm 5 độ C"
           onPress={() => adjustTemp(-5)}
         >
@@ -43,20 +45,29 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
 
         <SkeuoButton
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
-          disabled={condTemp <= 20}
+          disabled={isMin}
           accessibilityLabel="Giảm 1 độ C"
           onPress={() => adjustTemp(-1)}
         >
           <Text style={[styles.stepBtnText, { color: theme.ink }]}>-1°C</Text>
         </SkeuoButton>
 
-        <View style={[styles.tempDisplay, { backgroundColor: theme.surfaceInset }]}>
-          <Text style={[styles.tempVal, { color: theme.warning }]}>{condTemp.toFixed(1)}°C</Text>
-        </View>
+        {/* Ô hiển thị T_cond dạng LCD mini 48px */}
+        <SkeuoLcdWell variant="readout" style={styles.tempDisplay}>
+          <Text style={[styles.tempVal, { color: theme.screenInk }]}>{condTemp.toFixed(1)}°C</Text>
+          {(isMin || isMax) && (
+            <View style={styles.limitTag}>
+              <SkeuoLed state="error" size={6} />
+              <Text style={[styles.limitText, { color: theme.danger }]}>
+                {isMin ? 'MIN' : 'MAX'}
+              </Text>
+            </View>
+          )}
+        </SkeuoLcdWell>
 
         <SkeuoButton
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
-          disabled={condTemp >= 65}
+          disabled={isMax}
           accessibilityLabel="Tăng 1 độ C"
           onPress={() => adjustTemp(1)}
         >
@@ -65,22 +76,19 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
 
         <SkeuoButton
           style={[styles.stepBtn, { backgroundColor: theme.surfaceInset }]}
-          disabled={condTemp >= 65}
+          disabled={isMax}
           accessibilityLabel="Tăng 5 độ C"
           onPress={() => adjustTemp(5)}
         >
           <Text style={[styles.stepBtnText, { color: theme.ink }]}>+5°C</Text>
         </SkeuoButton>
       </View>
-    </View>
+    </SkeuoPanel>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
     marginBottom: 24,
     gap: 10,
   },
@@ -115,22 +123,33 @@ const styles = StyleSheet.create({
   stepBtn: {
     paddingHorizontal: 8,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   stepBtnText: {
     fontSize: 12,
     fontWeight: '700',
   },
   tempDisplay: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     minHeight: 48,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
+    gap: 2,
   },
   tempVal: {
     fontSize: 16,
     fontWeight: '800',
+    fontFamily: MONO,
+  },
+  limitTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  limitText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
     fontFamily: MONO,
   },
 });

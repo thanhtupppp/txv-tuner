@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Path, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { MONO } from '../constants/theme';
-import { useMaterial } from '../components/SkeuoKit';
+import { useMaterial, SkeuoPanel, SkeuoLcdWell } from '../components/SkeuoKit';
 
 export function TxvResultPanel({
   actualSh,
@@ -22,10 +22,12 @@ export function TxvResultPanel({
     return theme.danger;
   };
 
+  const deltaShColor = isOptimal ? theme.optimal : isLow ? theme.cold : theme.danger;
+
   return (
     <View style={styles.container}>
       {/* Khối 1: Kết quả Superheat */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+      <SkeuoPanel style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTag, { color: theme.inkMuted }]}>KẾT QUẢ ĐỘ QUÁ NHIỆT</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
@@ -36,7 +38,7 @@ export function TxvResultPanel({
         </View>
 
         <View style={styles.metricRow}>
-          <View style={[styles.metricWell, { backgroundColor: theme.screenBg || '#0b1120', borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.4)' }]}>
+          <SkeuoLcdWell variant="readout" style={styles.metricWell}>
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Quá Nhiệt Thực Tế (SH)</Text>
             <View style={styles.valueRow}>
               <Text style={[styles.numberLarge, { color: theme.screenInk }]}>
@@ -44,27 +46,22 @@ export function TxvResultPanel({
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K (°C)</Text>
             </View>
-          </View>
+          </SkeuoLcdWell>
 
-          <View style={[styles.metricWell, { backgroundColor: theme.screenBg || '#0b1120', borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.4)' }]}>
+          <SkeuoLcdWell variant="readout" style={styles.metricWell}>
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Độ Lệch Mục Tiêu (ΔSH)</Text>
             <View style={styles.valueRow}>
-              <Text
-                style={[
-                  styles.numberLarge,
-                  { color: isOptimal ? '#34d399' : isLow ? '#38bdf8' : '#f87171' }
-                ]}
-              >
+              <Text style={[styles.numberLarge, { color: deltaShColor }]}>
                 {typeof deltaSh === 'number' ? (deltaSh > 0 ? `+${deltaSh.toFixed(1)}` : deltaSh.toFixed(1)) : '--'}
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K</Text>
             </View>
-          </View>
+          </SkeuoLcdWell>
         </View>
-      </View>
+      </SkeuoPanel>
 
       {/* Khối 2: Hướng dẫn vặn vít Danfoss */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+      <SkeuoPanel style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTag, { color: theme.inkMuted }]}>HƯỚNG DẪN ĐIỀU CHỈNH VÍT TXV</Text>
           <Text style={[styles.valveBadge, { color: theme.accent }]}>{currentValve?.name || 'Danfoss TXV'}</Text>
@@ -72,38 +69,44 @@ export function TxvResultPanel({
 
         <View style={styles.screwSection}>
           {/* Vít xoay SVG mô phỏng 3D Brass Danfoss */}
-          <View style={[styles.dialBox, { backgroundColor: theme.screenBg || '#0b1120', borderWidth: 1, borderColor: 'rgba(0, 0, 0, 0.4)' }]}>
+          <SkeuoLcdWell variant="readout" style={styles.dialBox}>
             <Svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
               <Defs><LinearGradient id="brassFace" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#f6e4b4" /><Stop offset="0.5" stopColor="#bb934c" /><Stop offset="1" stopColor="#735424" /></LinearGradient></Defs>
-              <Circle cx="40" cy="40" r="35" fill={theme.surfaceRecessed || '#e2e8f0'} stroke={theme.borderStrong || '#94a3b8'} strokeWidth="3" />
-              <Circle cx="40" cy="40" r="27" fill={reducedEffects ? theme.brass : "url(#brassFace)"} stroke={theme.brassLight || '#f59e0b'} strokeWidth="2.5" />
+              <Circle cx="40" cy="40" r="35" fill={theme.surfaceRecessed} stroke={theme.borderStrong} strokeWidth={reducedEffects ? 1.5 : 3} />
+              <Circle cx="40" cy="40" r="27" fill={reducedEffects ? theme.brass : "url(#brassFace)"} stroke={theme.brassLight} strokeWidth={2.5} />
               {/* Rãnh vít khía kim loại */}
               <Line x1="40" y1="21" x2="40" y2="59" stroke="#451a03" strokeWidth="4.5" strokeLinecap="round" />
               <Line x1="21" y1="40" x2="59" y2="40" stroke="#451a03" strokeWidth="4.5" strokeLinecap="round" />
-              {/* Mũi tên chỉ hướng */}
+              {/* Mũi tên chỉ hướng kèm đầu tam giác */}
               {recommendation?.direction === 'CCW' && (
-                <Path
-                  d="M 22 26 A 22 22 0 0 1 58 26"
-                  fill="none"
-                  stroke={theme.screenInk}
-                  strokeWidth="3"
-                  strokeDasharray="4 2"
-                />
+                <>
+                  <Path
+                    d="M 58 26 A 22 22 0 0 0 22 26"
+                    fill="none"
+                    stroke={theme.screenInk}
+                    strokeWidth="3"
+                    strokeDasharray="4 2"
+                  />
+                  <Path d="M 22 20 L 22 32 L 15 26 Z" fill={theme.screenInk} />
+                </>
               )}
               {recommendation?.direction === 'CW' && (
-                <Path
-                  d="M 58 26 A 22 22 0 0 1 22 26"
-                  fill="none"
-                  stroke={theme.screenInk}
-                  strokeWidth="3"
-                  strokeDasharray="4 2"
-                />
+                <>
+                  <Path
+                    d="M 22 26 A 22 22 0 0 1 58 26"
+                    fill="none"
+                    stroke={theme.screenInk}
+                    strokeWidth="3"
+                    strokeDasharray="4 2"
+                  />
+                  <Path d="M 58 20 L 58 32 L 65 26 Z" fill={theme.screenInk} />
+                </>
               )}
             </Svg>
             <Text style={[styles.dialLabel, { color: theme.screenInk }]}>
               {recommendation?.direction === 'CW' ? '↻ CW' : recommendation?.direction === 'CCW' ? '↺ CCW' : '✓ OK'}
             </Text>
-          </View>
+          </SkeuoLcdWell>
 
           <View style={styles.actionDetails}>
             <Text style={[styles.actionHeading, { color: theme.ink }]}>
@@ -123,7 +126,7 @@ export function TxvResultPanel({
             Quy tắc kỹ thuật Danfoss: Sau khi vặn vít, luôn đợi ít nhất 15 - 20 phút để toàn bộ dàn lạnh và bầu cảm nhiệt ổn định trạng thái rồi mới đo lại.
           </Text>
         </View>
-      </View>
+      </SkeuoPanel>
     </View>
   );
 }

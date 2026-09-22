@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useId, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle } from 'react-native-svg';
-import { THEME, SKEUOMORPHISM } from '../constants/theme';
+import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle, Line, G, Text as SvgText } from 'react-native-svg';
+import { THEME, SKEUOMORPHISM, MONO } from '../constants/theme';
 
 const MaterialContext = createContext({ theme: THEME.light, reducedEffects: false });
 
@@ -109,6 +109,156 @@ export function SkeuoSwitch(props) {
   </View>;
 }
 
+// 1.1 SkeuoLcdWell: Ô lõm màn hình đo / đồ thị
+export function SkeuoLcdWell({ variant = 'readout', style, children, ...props }) {
+  const { theme, reducedEffects } = useMaterial();
+  const isChart = variant === 'chart';
+  return (
+    <View
+      {...props}
+      style={[
+        styles.lcdWell,
+        {
+          backgroundColor: theme.screenBg,
+          borderColor: theme.borderStrong,
+          borderTopColor: reducedEffects ? theme.borderStrong : theme.shadowDark,
+        },
+        isChart ? styles.lcdWellChart : styles.lcdWellReadout,
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+// 1.2 SkeuoLed: Chấm LED trạng thái chuẩn 10x10
+export function SkeuoLed({ state = 'ok', color, size = 10, style, accessibilityLabel, ...props }) {
+  const { theme } = useMaterial();
+  const stateColor = color || (
+    state === 'ok' ? theme.optimal :
+    state === 'warn' ? theme.warning :
+    state === 'error' ? theme.danger :
+    theme.border
+  );
+  return (
+    <View
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
+      aria-hidden={!accessibilityLabel}
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: stateColor,
+          borderColor: theme.borderStrong,
+          borderWidth: 1,
+        },
+        style,
+      ]}
+      {...props}
+    />
+  );
+}
+
+// 1.3 SkeuoGauge: Đồng hồ kim tròn SVG analog cho delta T_air
+export function SkeuoGauge({ value, size = 150, min = 0, max = 20, style }) {
+  const { theme, reducedEffects } = useMaterial();
+  const numVal = typeof value === 'number' && Number.isFinite(value) ? value : null;
+  const clamped = numVal !== null ? Math.max(min, Math.min(max, numVal)) : min;
+  const angle = -165 + ((clamped - min) / (max - min)) * 150;
+
+  const cx = 75;
+  const cy = 75;
+  const r = 52;
+  const toX = (deg) => (cx + r * Math.cos((deg * Math.PI) / 180)).toFixed(2);
+  const toY = (deg) => (cy + r * Math.sin((deg * Math.PI) / 180)).toFixed(2);
+
+  const arcLow = `M ${toX(-165)} ${toY(-165)} A ${r} ${r} 0 0 1 ${toX(-135)} ${toY(-135)}`;
+  const arcOpt = `M ${toX(-135)} ${toY(-135)} A ${r} ${r} 0 0 1 ${toX(-75)} ${toY(-75)}`;
+  const arcHigh = `M ${toX(-75)} ${toY(-75)} A ${r} ${r} 0 0 1 ${toX(-15)} ${toY(-15)}`;
+
+  const ticks = [];
+  for (let i = 0; i <= 10; i++) {
+    const deg = -165 + i * 15;
+    const isMajor = i === 0 || i === 2 || i === 6 || i === 10;
+    const rad = (deg * Math.PI) / 180;
+    const rOut = 49;
+    const rIn = isMajor ? 41 : 45;
+    ticks.push({
+      key: i,
+      x1: cx + rIn * Math.cos(rad),
+      y1: cy + rIn * Math.sin(rad),
+      x2: cx + rOut * Math.cos(rad),
+      y2: cy + rOut * Math.sin(rad),
+      stroke: isMajor ? theme.screenInk : theme.screenMuted,
+      strokeWidth: isMajor ? 1.5 : 1,
+    });
+  }
+
+  const a11yText = numVal !== null
+    ? `Độ giảm nhiệt khí qua dàn lạnh: ${numVal.toFixed(1)} K`
+    : 'Độ giảm nhiệt khí qua dàn lạnh: chưa có dữ liệu';
+
+  return (
+    <View
+      style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}
+      accessibilityRole="progressbar"
+      accessibilityLabel={a11yText}
+    >
+      <Svg width={size} height={size} viewBox="0 0 150 150" aria-hidden>
+        <Circle cx={cx} cy={cy} r={70} fill={theme.surfaceRecessed} stroke={theme.borderStrong} strokeWidth={reducedEffects ? 1.5 : 3} />
+        <Circle cx={cx} cy={cy} r={58} fill={theme.screenBg} stroke={theme.shadowDark} strokeWidth={reducedEffects ? 1 : 2} />
+        <Path d={arcLow} fill="none" stroke={theme.danger} strokeWidth={3} strokeLinecap="round" />
+        <Path d={arcOpt} fill="none" stroke={theme.optimal} strokeWidth={3.5} strokeLinecap="round" />
+        <Path d={arcHigh} fill="none" stroke={theme.warning} strokeWidth={3} strokeLinecap="round" />
+
+        {ticks.map(t => (
+          <Line key={t.key} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke={t.stroke} strokeWidth={t.strokeWidth} />
+        ))}
+
+        <SvgText x={cx} y={108} fill={theme.screenMuted} fontSize="9" fontWeight="700" fontFamily={MONO} textAnchor="middle">
+          ΔT_air (K)
+        </SvgText>
+
+        <G rotation={angle} origin={`${cx}, ${cy}`}>
+          <Path d={`M ${cx} ${cy - 2.5} L ${cx + 46} ${cy} L ${cx} ${cy + 2.5} Z`} fill={theme.danger} />
+          <Circle cx={cx} cy={cy} r={5} fill={theme.brass} />
+        </G>
+
+        <Circle cx={cx} cy={cy} r={6} fill={theme.brass} stroke={theme.brassLight} strokeWidth={1.5} />
+        <Circle cx={cx} cy={cy} r={2} fill={theme.shadowDark} />
+      </Svg>
+    </View>
+  );
+}
+
+// 1.4 SkeuoPanel: Wrapper card chuẩn thay cho pattern lặp
+export function SkeuoPanel({ style, children, ...props }) {
+  const { theme, reducedEffects } = useMaterial();
+  return (
+    <View
+      {...props}
+      style={[
+        styles.panel,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+        },
+        !reducedEffects && theme.cardShadow,
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   button: { minHeight: SKEUOMORPHISM['--um-skeuomorphism-target-min'], minWidth: 48, borderWidth: 1, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  panel: { borderRadius: 14, borderWidth: 1, padding: 16 },
+  lcdWell: { borderRadius: 8, borderWidth: 1, borderTopWidth: 2 },
+  lcdWellReadout: { paddingHorizontal: 10, paddingVertical: 8 },
+  lcdWellChart: { padding: 8, overflow: 'hidden' },
 });

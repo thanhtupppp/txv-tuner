@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
-import { useMaterial } from '../components/SkeuoKit';
+import { MONO } from '../constants/theme';
+import { useMaterial, SkeuoPanel, SkeuoLcdWell } from '../components/SkeuoKit';
 
 export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode }) {
   const { theme } = useMaterial();
@@ -38,7 +39,7 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode })
   const targetY = getY(targetSh);
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+    <SkeuoPanel style={styles.card}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.ink }]}>📈 Lịch Sử Biến Thiên Superheat</Text>
         <View style={styles.legendRow}>
@@ -53,26 +54,31 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode })
         </View>
       </View>
 
-      <View onLayout={event => setScreenWidth(event.nativeEvent.layout.width)} style={[styles.svgWrapper, { backgroundColor: theme.surfaceInset }]}>
+      <SkeuoLcdWell
+        variant="chart"
+        onLayout={event => setScreenWidth(event.nativeEvent.layout.width)}
+        style={styles.chartLcdWell}
+      >
         <Svg width={screenWidth} height={chartHeight}>
-          {/* Lưới ngang */}
+          {/* Lưới ngang tham chiếu */}
           {ticks.map((lvl) => (
             <Line
               key={lvl}
-              x1="30"
+              x1="32"
               y1={getY(lvl)}
-              x2={screenWidth - 10}
+              x2={screenWidth - 8}
               y2={getY(lvl)}
-              stroke={theme.border}
+              stroke={theme.borderStrong}
               strokeWidth="1"
+              strokeDasharray="2 3"
             />
           ))}
 
           {/* Đường mục tiêu */}
           <Line
-            x1="30"
+            x1="32"
             y1={targetY}
-            x2={screenWidth - 10}
+            x2={screenWidth - 8}
             y2={targetY}
             stroke={theme.optimal}
             strokeWidth="1.5"
@@ -89,19 +95,28 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode })
             />
           ) : null}
 
-          {/* Nhãn trục Y */}
-          {ticks.map(tick => <SvgText key={tick} x="4" y={getY(tick) + 4} fill={theme.inkMuted} fontSize="10" fontWeight="bold">{tick}K</SvgText>)}
+          {/* Nhãn trục Y: Font MONO màu screenMuted */}
+          {ticks.map(tick => (
+            <SvgText
+              key={tick}
+              x="4"
+              y={getY(tick) + 4}
+              fill={theme.screenMuted}
+              fontSize="10"
+              fontFamily={MONO}
+              fontWeight="bold"
+            >
+              {tick}K
+            </SvgText>
+          ))}
         </Svg>
-      </View>
-    </View>
+      </SkeuoLcdWell>
+    </SkeuoPanel>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
     marginBottom: 16,
     gap: 12,
   },
@@ -134,9 +149,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  svgWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    paddingVertical: 8,
+  chartLcdWell: {
+    minHeight: 140,
   },
 });

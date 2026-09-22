@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
-import { InstrumentIcon, MetalFace, SkeuoButton, SkeuoInput, useMaterial, SkeuoSwitch } from './SkeuoKit';
+import { InstrumentIcon, MetalFace, SkeuoButton, SkeuoInput, useMaterial, SkeuoSwitch, SkeuoLed } from './SkeuoKit';
 
 export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode, toggleTheme, esp32Ip, saveEsp32Ip, flat, setFlat }) {
   const { theme } = useMaterial();
@@ -44,7 +44,7 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
         </View>
         <View style={styles.statusRow}>
           <View style={styles.connection}>
-            <View style={[styles.led, { backgroundColor: isDemoMode ? theme.warning : connectionStatus === 'connected' ? theme.optimal : theme.danger, borderColor: theme.borderStrong }]} />
+            <SkeuoLed state={isDemoMode ? 'warn' : connectionStatus === 'connected' ? 'ok' : 'error'} size={10} />
             <Text style={[styles.status, { color: theme.ink }]}>{status}</Text>
           </View>
           <View style={styles.demo}>

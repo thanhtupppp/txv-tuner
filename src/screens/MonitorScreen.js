@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
 import { MONO } from '../constants/theme';
-import { useMaterial } from '../components/SkeuoKit';
+import { useMaterial, SkeuoPanel, SkeuoGauge, SkeuoLcdWell } from '../components/SkeuoKit';
+import { SensorCard } from '../components/SensorCard';
 import { evaluateDeltaAir } from '../utils/temperatureMetrics';
 
 export function MonitorScreen({ sensors = [], deltaAir, history = [], themeMode }) {
   const { theme } = useMaterial();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = (width / fontScale) < 360;
   const [screenWidth, setScreenWidth] = useState(280);
   const chartHeight = 160;
 
   const deltaEval = evaluateDeltaAir(deltaAir);
+  const deltaColor = deltaEval.status === 'optimal'
+    ? theme.optimal
+    : deltaEval.status === 'danger'
+      ? theme.danger
+      : deltaEval.status === 'warning'
+        ? theme.warning
+        : theme.inkMuted;
 
   // Chuẩn bị dữ liệu vẽ đồ thị 3 đường
   const minTemp = -35;
@@ -41,101 +51,103 @@ export function MonitorScreen({ sensors = [], deltaAir, history = [], themeMode 
     });
   }
 
-  const getSensorColor = (idx) => {
-    if (idx === 0) return theme.cold;
-    if (idx === 1) return theme.warning;
-    return theme.purple;
-  };
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.bg }]}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* 3 Thẻ cảm biến nhiệt độ */}
+      {/* 1. 3 Thẻ cảm biến nhiệt độ chuẩn Skeuomorphic */}
       <View style={styles.sensorsGrid}>
-        {sensors.map((sensor, idx) => {
-          const color = getSensorColor(idx);
-          return (
-            <View
-              key={sensor.id ?? idx}
-              style={[styles.sensorCard, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}
-            >
-              <View style={styles.sensorHeader}>
-                <View style={[styles.sensorDot, { backgroundColor: color }]} />
-                <Text style={[styles.sensorName, { color: theme.inkMuted }]}>{sensor.name}</Text>
+        {sensors.map((sensor, idx) => (
+          <SensorCard key={sensor.id ?? idx} sensor={sensor} channelIndex={idx} />
+        ))}
+      </View>
+
+      {/* 2. Thẻ GaugePanel: Đồng hồ kim SVG analog kết hợp thông tin chi tiết */}
+      <SkeuoPanel style={styles.gaugePanel}>
+        <View style={styles.gaugePanelRow}>
+          <View style={styles.gaugeCenter}>
+            <SkeuoGauge value={deltaAir} size={compact ? 130 : 150} min={0} max={20} />
+          </View>
+
+          <View style={styles.gaugeInfoCol}>
+            <Text style={[styles.deltaTag, { color: theme.inkMuted }]}>HIỆU SUẤT TRAO ĐỔI NHIỆT</Text>
+            <Text style={[styles.deltaTitle, { color: theme.ink }]}>Độ Giảm Nhiệt Khí Qua Dàn (ΔT_air = T1 - T2)</Text>
+
+            <SkeuoLcdWell variant="readout" style={styles.deltaLcdWell}>
+              <View style={styles.deltaValueWrap}>
+                <Text style={[styles.deltaValue, { color: theme.screenInk }]}>
+                  {typeof deltaAir === 'number' ? deltaAir.toFixed(1) : '--'}
+                </Text>
+                <Text style={[styles.deltaUnit, { color: theme.screenMuted }]}>K</Text>
               </View>
-              <Text style={[styles.sensorValue, { color }]}>
-                {typeof sensor.temp === 'number' ? `${sensor.temp.toFixed(1)}°C` : '--'}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
 
-      {/* Thẻ Delta Air */}
-      <View style={[styles.deltaCard, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
-        <View style={styles.deltaHeader}>
-          <Text style={[styles.deltaTag, { color: theme.inkMuted }]}>HIỆU SUẤT TRAO ĐỔI NHIỆT</Text>
-          <Text style={[styles.deltaTitle, { color: theme.ink }]}>Độ Giảm Nhiệt Khí Qua Dàn (ΔT_air = T1 - T2)</Text>
+              <View style={[styles.statusBadge, { backgroundColor: deltaColor }]}>
+                <Text style={[styles.statusBadgeText, { color: theme.onAccent }]}>
+                  {deltaEval.status === 'optimal' ? '✓ TỐI ƯU' : deltaEval.status === 'danger' ? '⚠ CẢNH BÁO' : 'CHÚ Ý'}
+                </Text>
+              </View>
+            </SkeuoLcdWell>
+
+            <Text style={[styles.deltaDesc, { color: theme.inkMuted }]}>
+              {deltaEval.text}
+            </Text>
+          </View>
         </View>
+      </SkeuoPanel>
 
-        <View style={styles.deltaContent}>
-          <Text style={[styles.deltaValue, { color: theme.optimal }]}>
-            {typeof deltaAir === 'number' ? `${deltaAir.toFixed(1)} K` : '--'}
-          </Text>
-          <Text style={[styles.deltaDesc, { color: theme.inkMuted }]}>
-            {deltaEval.text}
-          </Text>
-        </View>
-      </View>
-
-      {/* Đồ thị giám sát thời gian thực */}
-      <View style={[styles.chartCard, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+      {/* 3. Đồ thị giám sát thời gian thực bọc trong SkeuoLcdWell */}
+      <SkeuoPanel style={styles.chartPanel}>
         <View style={styles.chartHeader}>
           <Text style={[styles.chartTitle, { color: theme.ink }]}>📊 Đồ Thị 3 Cảm Biến Real-Time</Text>
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: theme.cold }]} />
-              <Text style={[styles.legendText, { color: theme.inkMuted }]}>T1</Text>
+              <Text style={[styles.legendText, { color: theme.inkMuted }]}>T1 Vào</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: theme.warning }]} />
-              <Text style={[styles.legendText, { color: theme.inkMuted }]}>T2</Text>
+              <Text style={[styles.legendText, { color: theme.inkMuted }]}>T2 Ra</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: theme.purple }]} />
-              <Text style={[styles.legendText, { color: theme.inkMuted }]}>T3</Text>
+              <Text style={[styles.legendText, { color: theme.inkMuted }]}>T3 TXV</Text>
             </View>
           </View>
         </View>
 
-        <View onLayout={event => setScreenWidth(event.nativeEvent.layout.width)} style={[styles.svgWrapper, { backgroundColor: theme.surfaceInset }]}>
+        <SkeuoLcdWell
+          variant="chart"
+          onLayout={event => setScreenWidth(event.nativeEvent.layout.width)}
+          style={styles.chartLcdWell}
+        >
           <Svg width={screenWidth} height={chartHeight}>
-            {/* Lưới ngang */}
+            {/* Lưới ngang tham chiếu */}
             {[-15, -20, -25, -30].map((lvl) => (
               <Line
                 key={lvl}
-                x1="30"
+                x1="38"
                 y1={getY(lvl)}
-                x2={screenWidth - 10}
+                x2={screenWidth - 8}
                 y2={getY(lvl)}
-                stroke={theme.border}
+                stroke={theme.borderStrong}
                 strokeWidth="1"
+                strokeDasharray="2 3"
               />
             ))}
 
-            {pathT1 ? <Path d={pathT1} fill="none" stroke={theme.cold} strokeWidth="2" /> : null}
-            {pathT2 ? <Path d={pathT2} fill="none" stroke={theme.warning} strokeWidth="2" /> : null}
-            {pathT3 ? <Path d={pathT3} fill="none" stroke={theme.purple} strokeWidth="2" /> : null}
+            {pathT1 ? <Path d={pathT1} fill="none" stroke={theme.cold} strokeWidth="2.5" /> : null}
+            {pathT2 ? <Path d={pathT2} fill="none" stroke={theme.warning} strokeWidth="2.5" /> : null}
+            {pathT3 ? <Path d={pathT3} fill="none" stroke={theme.purple} strokeWidth="2.5" /> : null}
 
-            <SvgText x="6" y={getY(-15) + 4} fill={theme.inkMuted} fontSize="9" fontWeight="bold">-15°C</SvgText>
-            <SvgText x="6" y={getY(-25) + 4} fill={theme.inkMuted} fontSize="9" fontWeight="bold">-25°C</SvgText>
-            <SvgText x="6" y={getY(-35) + 4} fill={theme.inkMuted} fontSize="9" fontWeight="bold">-35°C</SvgText>
+            {/* Trục Y: Font MONO 10px màu screenMuted */}
+            <SvgText x="6" y={getY(-15) + 4} fill={theme.screenMuted} fontSize="10" fontFamily={MONO} fontWeight="bold">-15°C</SvgText>
+            <SvgText x="6" y={getY(-25) + 4} fill={theme.screenMuted} fontSize="10" fontFamily={MONO} fontWeight="bold">-25°C</SvgText>
+            <SvgText x="6" y={getY(-35) + 4} fill={theme.screenMuted} fontSize="10" fontFamily={MONO} fontWeight="bold">-35°C</SvgText>
           </Svg>
-        </View>
-      </View>
+        </SkeuoLcdWell>
+      </SkeuoPanel>
     </ScrollView>
   );
 }
@@ -157,71 +169,73 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
-  sensorCard: {
-    flex: 1,
-    minWidth: 135,
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    gap: 6,
+  gaugePanel: {
+    gap: 12,
   },
-  sensorHeader: {
+  gaugePanelRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 16,
   },
-  sensorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  gaugeCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sensorName: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sensorValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    fontFamily: MONO,
-  },
-  deltaCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    gap: 10,
-  },
-  deltaHeader: {
-    gap: 2,
+  gaugeInfoCol: {
+    flex: 1,
+    minWidth: 200,
+    gap: 8,
   },
   deltaTag: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   deltaTitle: {
     fontSize: 13,
     fontWeight: '800',
+    lineHeight: 18,
   },
-  deltaContent: {
+  deltaLcdWell: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 48,
+  },
+  deltaValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
   },
   deltaValue: {
+    fontFamily: MONO,
     fontSize: 26,
     fontWeight: '800',
-    fontFamily: MONO,
+    fontVariant: ['tabular-nums'],
+  },
+  deltaUnit: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   deltaDesc: {
-    flex: 1,
     fontSize: 12,
     lineHeight: 16,
   },
-  chartCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
+  chartPanel: {
     gap: 12,
   },
   chartHeader: {
@@ -237,7 +251,7 @@ const styles = StyleSheet.create({
   },
   legendRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   legendItem: {
     flexDirection: 'row',
@@ -245,17 +259,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  svgWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    paddingVertical: 8,
+  chartLcdWell: {
+    minHeight: 160,
   },
 });

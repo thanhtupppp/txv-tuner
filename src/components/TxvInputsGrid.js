@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MONO } from '../constants/theme';
-import { useMaterial, SkeuoButton, SkeuoNumberInput, InstrumentIcon } from '../components/SkeuoKit';
+import { useMaterial, SkeuoPanel, SkeuoLcdWell, SkeuoButton, SkeuoNumberInput, InstrumentIcon } from '../components/SkeuoKit';
 
 export function TxvInputsGrid({
   opMode,
@@ -28,7 +28,7 @@ export function TxvInputsGrid({
   return (
     <View style={styles.container}>
       {/* Thẻ 1: Điểm bay hơi */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+      <SkeuoPanel style={styles.card}>
         <View style={styles.cardHeader}>
           <InstrumentIcon name="snow" color={theme.accent} size={24} />
           <View style={{ flex: 1 }}>
@@ -98,38 +98,38 @@ export function TxvInputsGrid({
         <View style={styles.inputsColumn}>
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Nhiệt độ bay hơi T_evap (°C):</Text>
-            <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
+            <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
-                style={[styles.numericInput, { color: theme.ink }]}
+                style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Nhiệt độ bay hơi, độ C"
                 value={typeof evapTemp === 'number' ? String(evapTemp) : '0'}
                 onChangeText={handleEvapTempChange}
                 editable={opMode === 'manual' || !isAutoSyncSensors}
                 keyboardType="numeric"
               />
-              <Text style={[styles.unitText, { color: theme.inkMuted }]}>°C</Text>
-            </View>
+              <Text style={[styles.unitText, { color: theme.screenMuted }]}>°C</Text>
+            </SkeuoLcdWell>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Áp suất bay hơi Pe (bar):</Text>
-            <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
+            <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
-                style={[styles.numericInput, { color: theme.ink }]}
+                style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Áp suất bay hơi, bar"
                 value={typeof evapPressure === 'number' ? String(evapPressure) : '0'}
                 onChangeText={handleEvapPressureChange}
                 editable={opMode === 'manual' || !isAutoSyncSensors || evapSource === 'pressure'}
                 keyboardType="numeric"
               />
-              <Text style={[styles.unitText, { color: theme.inkMuted }]}>bar</Text>
-            </View>
+              <Text style={[styles.unitText, { color: theme.screenMuted }]}>bar</Text>
+            </SkeuoLcdWell>
           </View>
         </View>
-      </View>
+      </SkeuoPanel>
 
       {/* Thẻ 2: Nhiệt độ hơi hút */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+      <SkeuoPanel style={styles.card}>
         <View style={styles.cardHeader}>
           <InstrumentIcon name="chart" color={theme.accent} size={24} />
           <View style={{ flex: 1 }}>
@@ -141,10 +141,10 @@ export function TxvInputsGrid({
         <View style={styles.inputsColumn}>
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Nhiệt độ đo tại ngõ ra dàn lạnh (Ts):</Text>
-            <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
+            <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
                 onFocus={() => setIsAutoSyncSensors(false)}
-                style={[styles.numericInput, { color: theme.ink }]}
+                style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Nhiệt độ hơi hút, độ C"
                 value={typeof suctionTemp === 'number' ? String(suctionTemp) : '0'}
                 onChangeText={(val) => {
@@ -153,32 +153,43 @@ export function TxvInputsGrid({
                 }}
                 keyboardType="numeric"
               />
-              <Text style={[styles.unitText, { color: theme.inkMuted }]}>°C</Text>
-            </View>
+              <Text style={[styles.unitText, { color: theme.screenMuted }]}>°C</Text>
+            </SkeuoLcdWell>
           </View>
 
           <View style={styles.presetsRow}>
             <Text style={[styles.presetsLabel, { color: theme.inkMuted }]}>Thử nghiệm:</Text>
-            {[-6, 6, 18].map((t) => (
-              <SkeuoButton
-                key={t}
-                style={[styles.presetBtn, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}
-                onPress={() => {
-                  setIsAutoSyncSensors(false);
-                  setSuctionTemp(t);
-                }}
-              >
-                <Text style={[styles.presetBtnText, { color: theme.ink }]}>
-                  {t > 0 ? `+${t}` : t}°C
-                </Text>
-              </SkeuoButton>
-            ))}
+            {[-6, 6, 18].map((t) => {
+              const isMatch = Math.abs((suctionTemp ?? 0) - t) < 0.05;
+              return (
+                <SkeuoButton
+                  key={t}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isMatch }}
+                  style={[
+                    styles.presetBtn,
+                    {
+                      backgroundColor: isMatch ? theme.accent : theme.surfaceInset,
+                      borderColor: isMatch ? theme.accent : theme.border
+                    }
+                  ]}
+                  onPress={() => {
+                    setIsAutoSyncSensors(false);
+                    setSuctionTemp(t);
+                  }}
+                >
+                  <Text style={[styles.presetBtnText, { color: isMatch ? theme.onAccent : theme.ink, fontWeight: isMatch ? '800' : '600' }]}>
+                    {isMatch ? '✓ ' : ''}{t > 0 ? `+${t}` : t}°C
+                  </Text>
+                </SkeuoButton>
+              );
+            })}
           </View>
         </View>
-      </View>
+      </SkeuoPanel>
 
       {/* Thẻ 3: Quá nhiệt mục tiêu */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
+      <SkeuoPanel style={styles.card}>
         <View style={styles.cardHeader}>
           <InstrumentIcon name="tune" color={theme.accent} size={24} />
           <View style={{ flex: 1 }}>
@@ -190,16 +201,16 @@ export function TxvInputsGrid({
         <View style={styles.inputsColumn}>
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Quá nhiệt mong muốn SH_target (K):</Text>
-            <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
+            <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
-                style={[styles.numericInput, { color: theme.ink }]}
+                style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Quá nhiệt mục tiêu, K"
                 value={typeof targetSh === 'number' ? String(targetSh) : '6'}
                 onChangeText={(val) => setTargetSh(parseFloat(val) || 6)}
                 keyboardType="numeric"
               />
-              <Text style={[styles.unitText, { color: theme.inkMuted }]}>K</Text>
-            </View>
+              <Text style={[styles.unitText, { color: theme.screenMuted }]}>K</Text>
+            </SkeuoLcdWell>
           </View>
 
           <View style={styles.presetsRow}>
@@ -229,7 +240,7 @@ export function TxvInputsGrid({
             ))}
           </View>
         </View>
-      </View>
+      </SkeuoPanel>
     </View>
   );
 }
@@ -240,9 +251,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   card: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
     gap: 14,
   },
   cardHeader: {
@@ -250,29 +258,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  cardIcon: {
-    fontSize: 22,
-  },
   cardTag: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   sourceGroup: {
-    gap: 8,
+    gap: 6,
   },
   sourceLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   sourceChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   sourceChip: {
     paddingHorizontal: 10,
@@ -281,7 +287,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   sourceChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   inputsColumn: {
@@ -298,23 +304,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 56,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#6b7e72',
-    borderTopWidth: 2,
+    minHeight: 52,
+    paddingHorizontal: 12,
   },
   numericInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     fontFamily: MONO,
-    color: '#38bdf8',
   },
   unitText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: MONO,
     marginLeft: 6,
   },
   presetsRow: {
