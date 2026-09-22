@@ -36,7 +36,7 @@ export default function App() {
             {[{ id: 'txv', icon: 'tune', label: 'Chỉnh TXV' }, { id: 'monitor', icon: 'chart', label: 'Giám sát' }].map(tab => {
               const isSelected = activeTab === tab.id;
               return (
-                <SkeuoButton key={tab.id} accessibilityRole="tab" accessibilityState={{ selected: isSelected }}
+                <SkeuoButton testID={`tab-${tab.id}`} key={tab.id} accessibilityRole="tab" accessibilityState={{ selected: isSelected }}
                   style={[
                     styles.tabButton,
                     isSelected

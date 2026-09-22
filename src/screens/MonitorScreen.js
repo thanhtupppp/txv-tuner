@@ -83,9 +83,9 @@ export function MonitorScreen({ sensors = [], deltaAir, history = [], themeMode 
                 <Text style={[styles.deltaUnit, { color: theme.screenMuted }]}>K</Text>
               </View>
 
-              <View style={[styles.statusBadge, { backgroundColor: deltaColor }]}>
+              <View testID="delta-status-badge" style={[styles.statusBadge, { backgroundColor: deltaColor }]}>
                 <Text style={[styles.statusBadgeText, { color: theme.onAccent }]}>
-                  {deltaEval.status === 'optimal' ? '✓ TỐI ƯU' : deltaEval.status === 'danger' ? '⚠ CẢNH BÁO' : 'CHÚ Ý'}
+                  {deltaEval.status === 'optimal' ? '✓ TỐI ƯU' : deltaEval.status === 'danger' ? '⛔ NGUY HIỂM' : '⚠ CẢNH BÁO'}
                 </Text>
               </View>
             </SkeuoLcdWell>
