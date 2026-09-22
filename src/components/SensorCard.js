@@ -19,9 +19,9 @@ export function SensorCard({ sensor, channelIndex = 0, style }) {
   const a11yLabel = `${sensor?.name || 'Cảm biến'}: ${tempVal === '--' ? 'chưa có dữ liệu' : `${tempVal} độ C`}`;
 
   return (
-    <SkeuoPanel style={[styles.card, style]} accessibilityRole="summary" accessibilityLabel={a11yLabel}>
+    <SkeuoPanel testID="sensor-card" style={[styles.card, style]} accessibilityRole="summary" accessibilityLabel={a11yLabel}>
       <View style={styles.header}>
-        <SkeuoLed color={channelColor} size={10} />
+        <SkeuoLed testID="sensor-led" color={channelColor} size={10} />
         <Text style={[styles.sensorName, { color: theme.inkMuted }]} numberOfLines={1}>
           {sensor?.name || `Kênh ${channelIndex + 1}`}
         </Text>
@@ -29,7 +29,7 @@ export function SensorCard({ sensor, channelIndex = 0, style }) {
 
       <SkeuoLcdWell variant="readout" style={styles.lcdWell}>
         <View style={styles.valueRow}>
-          <Text style={[styles.sensorValue, { color: theme.screenInk }]}>
+          <Text testID="sensor-value" style={[styles.sensorValue, { color: theme.screenInk }]}>
             {tempVal}
           </Text>
           <Text style={[styles.unit, { color: theme.screenMuted }]}>°C</Text>

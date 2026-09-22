@@ -13,14 +13,14 @@ export function TxvTelemetryBar({ liveT1, liveT2, liveT3, isAutoSyncSensors, set
   ];
 
   return (
-    <SkeuoPanel style={styles.shell}>
+    <SkeuoPanel testID="telemetry-bar" style={styles.shell}>
       <View style={styles.heading}>
         <View style={styles.titleCol}>
           <View style={styles.titleRow}>
-            <SkeuoLed state={!active ? 'error' : isDemoMode ? 'warn' : 'ok'} size={10} />
+            <SkeuoLed testID="status-led" state={!active ? 'error' : isDemoMode ? 'warn' : 'ok'} size={10} />
             <Text style={[styles.label, { color: theme.inkMuted }]}>TRẠM ĐO NHIỆT ĐỘ</Text>
             {isDemoMode && (
-              <View style={[styles.demoTag, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
+              <View testID="demo-tag" style={[styles.demoTag, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
                 <Text style={[styles.demoTagText, { color: theme.warning }]}>MÔ PHỎNG</Text>
               </View>
             )}
@@ -32,7 +32,7 @@ export function TxvTelemetryBar({ liveT1, liveT2, liveT3, isAutoSyncSensors, set
 
         <View style={styles.sync}>
           <Text style={[styles.syncLabel, { color: theme.ink }]}>{isAutoSyncSensors ? 'Tự đồng bộ' : 'Nhập thủ công'}</Text>
-          <SkeuoSwitch accessibilityLabel="Tự đồng bộ cảm biến" value={isAutoSyncSensors} onValueChange={setIsAutoSyncSensors} />
+          <SkeuoSwitch testID="sync-switch" accessibilityLabel="Tự đồng bộ cảm biến" value={isAutoSyncSensors} onValueChange={setIsAutoSyncSensors} />
         </View>
       </View>
 
@@ -40,10 +40,10 @@ export function TxvTelemetryBar({ liveT1, liveT2, liveT3, isAutoSyncSensors, set
         {readings.map(reading => (
           <SkeuoLcdWell key={reading.label} variant="readout" style={styles.well}>
             <View style={styles.wellHeader}>
-              <SkeuoLed color={reading.channelColor} size={7} />
+              <SkeuoLed testID="channel-led" color={reading.channelColor} size={7} />
               <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>{reading.label}</Text>
             </View>
-            <Text style={[styles.value, { color: active ? theme.screenInk : theme.screenMuted, opacity: active ? 1 : 0.6 }]}>
+            <Text testID="value-text" style={[styles.value, { color: active ? theme.screenInk : theme.screenMuted, opacity: active ? 1 : 0.6 }]}>
               {typeof reading.value === 'number' ? reading.value.toFixed(1) : '—'}
               <Text style={styles.unit}> °C</Text>
             </Text>
