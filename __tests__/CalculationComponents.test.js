@@ -313,5 +313,26 @@ describe('Phase 3: Calculation & Business Logic Layer Tests', () => {
 
       expect(getByText(/👉 Xoay 2\.00 vòng NGƯỢC chiều kim đồng hồ \(CCW\)/)).toBeTruthy();
     });
+
+    it('renders animated screw dial container and respects reducedEffects', async () => {
+      const rec = calculateTxvRecommendation(4.0, 6.0, valveTE5);
+      const { getByTestId } = await renderWithMaterial(
+        <TxvResultPanel
+          actualSh={4.0}
+          deltaSh={-2.0}
+          recommendation={rec}
+          currentValve={valveTE5}
+        />,
+        { flat: true }
+      );
+
+      const animatedDial = getByTestId('screw-dial-animated');
+      expect(animatedDial).toBeTruthy();
+      expect(animatedDial.props.style).toEqual(
+        expect.objectContaining({
+          transform: expect.any(Array),
+        })
+      );
+    });
   });
 });

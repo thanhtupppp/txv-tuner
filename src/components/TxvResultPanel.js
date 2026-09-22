@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import Svg, { Circle, Path, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell } from '../components/SkeuoKit';
@@ -15,6 +15,67 @@ export function TxvResultPanel({
   const isHigh = recommendation?.status === 'high';
   const isLow = recommendation?.status === 'low';
   const isOptimal = recommendation?.status === 'optimal';
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (reducedEffects) {
+      pulseAnim.setValue(1);
+      rotateAnim.setValue(0);
+      return;
+    }
+
+    const direction = recommendation?.direction;
+    if (direction === 'CW' || direction === 'CCW') {
+      // 1. Hiệu ứng xoay tròn mượt mà (3000ms / vòng) theo chiều kim đồng hồ hoặc ngược chiều
+      rotateAnim.setValue(0);
+      const rotateAnimation = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: direction === 'CW' ? 1 : -1,
+          duration: 3000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+
+      // 2. Hiệu ứng nhịp đập (pulse) co giãn nhẹ nhàng (scale 1.0 -> 1.08 -> 1.0)
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 650,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1.0,
+            duration: 650,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+
+      rotateAnimation.start();
+      pulseAnimation.start();
+
+      return () => {
+        rotateAnimation.stop();
+        pulseAnimation.stop();
+        pulseAnim.setValue(1);
+        rotateAnim.setValue(0);
+      };
+    } else {
+      pulseAnim.setValue(1);
+      rotateAnim.setValue(0);
+    }
+  }, [recommendation?.direction, reducedEffects]);
+
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-360deg', '0deg', '360deg'],
+  });
 
   const getStatusColor = () => {
     if (isOptimal) return theme.optimal;
@@ -66,41 +127,51 @@ export function TxvResultPanel({
         </View>
 
         <View style={styles.screwSection}>
-          {/* Vít xoay SVG mô phỏng 3D Brass Danfoss */}
+          {/* Vít xoay SVG mô phỏng 3D Brass Danfoss kết hợp hiệu ứng động */}
           <SkeuoLcdWell variant="readout" style={styles.dialBox}>
-            <Svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
-              <Defs><LinearGradient id="brassFace" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#f6e4b4" /><Stop offset="0.5" stopColor="#bb934c" /><Stop offset="1" stopColor="#735424" /></LinearGradient></Defs>
-              <Circle cx="40" cy="40" r="35" fill={theme.surfaceRecessed} stroke={theme.borderStrong} strokeWidth={reducedEffects ? 1.5 : 3} />
-              <Circle cx="40" cy="40" r="27" fill={reducedEffects ? theme.brass : "url(#brassFace)"} stroke={theme.brassLight} strokeWidth={2.5} />
-              {/* Rãnh vít khía kim loại */}
-              <Line x1="40" y1="21" x2="40" y2="59" stroke="#451a03" strokeWidth="4.5" strokeLinecap="round" />
-              <Line x1="21" y1="40" x2="59" y2="40" stroke="#451a03" strokeWidth="4.5" strokeLinecap="round" />
-              {/* Mũi tên chỉ hướng kèm đầu tam giác */}
-              {recommendation?.direction === 'CCW' && (
-                <>
-                  <Path
-                    d="M 58 26 A 22 22 0 0 0 22 26"
-                    fill="none"
-                    stroke={theme.screenInk}
-                    strokeWidth="3"
-                    strokeDasharray="4 2"
-                  />
-                  <Path d="M 22 20 L 22 32 L 15 26 Z" fill={theme.screenInk} />
-                </>
-              )}
-              {recommendation?.direction === 'CW' && (
-                <>
-                  <Path
-                    d="M 22 26 A 22 22 0 0 1 58 26"
-                    fill="none"
-                    stroke={theme.screenInk}
-                    strokeWidth="3"
-                    strokeDasharray="4 2"
-                  />
-                  <Path d="M 58 20 L 58 32 L 65 26 Z" fill={theme.screenInk} />
-                </>
-              )}
-            </Svg>
+            <Animated.View
+              testID="screw-dial-animated"
+              style={{
+                transform: [
+                  { scale: pulseAnim },
+                  { rotate: rotateInterpolate },
+                ],
+              }}
+            >
+              <Svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
+                <Defs><LinearGradient id="brassFace" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#f6e4b4" /><Stop offset="0.5" stopColor="#bb934c" /><Stop offset="1" stopColor="#735424" /></LinearGradient></Defs>
+                <Circle cx="40" cy="40" r="35" fill={theme.surfaceRecessed} stroke={theme.borderStrong} strokeWidth={reducedEffects ? 1.5 : 3} />
+                <Circle cx="40" cy="40" r="27" fill={reducedEffects ? theme.brass : "url(#brassFace)"} stroke={theme.brassLight} strokeWidth={2.5} />
+                {/* Rãnh vít khía kim loại */}
+                <Line x1="40" y1="21" x2="40" y2="59" stroke="#451a03" strokeWidth="4.5" strokeLinecap="round" />
+                <Line x1="21" y1="40" x2="59" y2="40" stroke="#451a03" strokeWidth="4.5" strokeLinecap="round" />
+                {/* Mũi tên chỉ hướng kèm đầu tam giác */}
+                {recommendation?.direction === 'CCW' && (
+                  <>
+                    <Path
+                      d="M 58 26 A 22 22 0 0 0 22 26"
+                      fill="none"
+                      stroke={theme.screenInk}
+                      strokeWidth="3"
+                      strokeDasharray="4 2"
+                    />
+                    <Path d="M 22 20 L 22 32 L 15 26 Z" fill={theme.screenInk} />
+                  </>
+                )}
+                {recommendation?.direction === 'CW' && (
+                  <>
+                    <Path
+                      d="M 22 26 A 22 22 0 0 1 58 26"
+                      fill="none"
+                      stroke={theme.screenInk}
+                      strokeWidth="3"
+                      strokeDasharray="4 2"
+                    />
+                    <Path d="M 58 20 L 58 32 L 65 26 Z" fill={theme.screenInk} />
+                  </>
+                )}
+              </Svg>
+            </Animated.View>
             <Text testID="dial-label" style={[styles.dialLabel, { color: theme.screenInk }]}>
               {recommendation?.direction === 'CW' ? '↻ CW' : recommendation?.direction === 'CCW' ? '↺ CCW' : '✓ OK'}
             </Text>
