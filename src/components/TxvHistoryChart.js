@@ -153,3 +153,5 @@ const styles = StyleSheet.create({
     minHeight: 140,
   },
 });
+
+export default TxvHistoryChart;
