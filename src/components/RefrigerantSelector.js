@@ -1,81 +1,118 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, ScrollView, Platform } from 'react-native';
 import { REFRIGERANTS, tempToPressure } from '../data/danfossData';
-import { useMaterial, SkeuoButton } from '../components/SkeuoKit';
+import { useMaterial, SkeuoButton, SkeuoPanel } from './SkeuoKit';
 
 export function RefrigerantSelector({
-  selectedRefId,
+  selectedRefId = 'R404A',
   setSelectedRefId,
   currentRef,
-  evapTemp,
+  evapTemp = -27.0,
   setEvapPressure,
   themeMode
 }) {
   const { theme } = useMaterial();
-  const refId = currentRef?.id || 'R404A';
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const refId = currentRef?.id || selectedRefId || 'R404A';
   const refDesc = currentRef?.desc || 'Môi chất lạnh';
   const tc = currentRef?.Tc ? (currentRef.Tc - 273.15).toFixed(1) : '--';
   const pc = currentRef?.Pc ? currentRef.Pc.toFixed(1) : '--';
 
   const handleSelect = (id) => {
-    setSelectedRefId(id);
+    if (typeof setSelectedRefId === 'function') {
+      setSelectedRefId(id);
+    }
+    setModalVisible(false);
     if (typeof setEvapPressure === 'function') {
       try {
         const p = tempToPressure(evapTemp ?? -27.0, id);
         setEvapPressure(p);
-      } catch (e) {}
+      } catch (e) {
+        console.warn(`[RefrigerantSelector] Lỗi tính áp suất cho ${id}:`, e);
+      }
     }
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, theme.cardShadow]}>
-      <View style={styles.header}>
-        <Text style={[styles.sectionTitle, { color: theme.inkMuted }]}>
-          01 / MÔI CHẤT LẠNH
-        </Text>
-        <Text style={[styles.selectedInfo, { color: theme.accent }]}>
-          {refId} • {refDesc} (Tc: {tc}°C, Pc: {pc} bar)
-        </Text>
-      </View>
+    <>
+      <SkeuoPanel style={styles.card}>
+        <View style={styles.header}>
+          <Text style={[styles.sectionTitle, { color: theme.inkMuted }]}>
+            01 / MÔI CHẤT LẠNH
+          </Text>
+          <Text style={[styles.selectedInfo, { color: theme.accent }]}>
+            {refId} • {refDesc} (Tc: {tc}°C, Pc: {pc} bar)
+          </Text>
+        </View>
 
-      <View style={styles.chipsWrap} accessibilityRole="radiogroup">
-        {REFRIGERANTS.map((ref) => {
-          const isSelected = selectedRefId === ref.id;
-          return (
-            <SkeuoButton
-              key={ref.id}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: isSelected }}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: isSelected ? theme.accent : theme.surfaceInset,
-                  borderColor: isSelected ? theme.accent : theme.border
-                }
-              ]}
-              onPress={() => handleSelect(ref.id)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: isSelected ? theme.onAccent : theme.ink, fontWeight: isSelected ? '800' : '600' }
-                ]}
-              >
-                {isSelected ? '✓ ' : ''}{ref.id}
-              </Text>
+        <SkeuoButton
+          onPress={() => setModalVisible(true)}
+          style={styles.dropdownButton}
+          accessibilityLabel={`Chọn môi chất lạnh, hiện tại: ${refId}`}
+        >
+          <Text style={[styles.dropdownText, { color: theme.ink }]}>
+            <Text style={{ fontWeight: '800' }}>✓ {refId}</Text> — {refDesc}
+          </Text>
+          <Text style={[styles.dropdownArrow, { color: theme.inkMuted }]}>▼</Text>
+        </SkeuoButton>
+      </SkeuoPanel>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType={Platform.OS === 'ios' ? 'slide' : 'fade'}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <SkeuoPanel style={styles.modalContent}>
+            <Text style={[styles.modalTitle, { color: theme.ink }]}>
+              Chọn Môi Chất Lạnh
+            </Text>
+
+            <ScrollView style={styles.scrollView}>
+              {REFRIGERANTS.map((ref) => {
+                const isSelected = (currentRef?.id || selectedRefId) === ref.id;
+                return (
+                  <SkeuoButton
+                    key={ref.id}
+                    onPress={() => handleSelect(ref.id)}
+                    style={[
+                      styles.modalItem,
+                      isSelected && { backgroundColor: theme.accent },
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        { color: isSelected ? theme.onAccent : theme.ink },
+                      ]}
+                    >
+                      {isSelected ? '✓ ' : ''}{ref.id} — {ref.desc}
+                    </Text>
+                  </SkeuoButton>
+                );
+              })}
+            </ScrollView>
+
+            <SkeuoButton onPress={() => setModalVisible(false)} style={styles.closeButton}>
+              <Text style={[styles.closeButtonText, { color: theme.ink }]}>Đóng</Text>
             </SkeuoButton>
-          );
-        })}
-      </View>
-    </View>
+          </SkeuoPanel>
+        </View>
+      </Modal>
+    </>
   );
 }
+
+export default RefrigerantSelector;
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
     marginBottom: 16,
     gap: 12,
   },
@@ -92,18 +129,62 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 16,
   },
-  chipsWrap: {
+  dropdownButton: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 48,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingVertical: 10,
   },
-  chipText: {
+  dropdownText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  dropdownArrow: {
     fontSize: 12,
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 15, 10, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    gap: 12,
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  scrollView: {
+    maxHeight: 300,
+    marginBottom: 8,
+  },
+  modalItem: {
+    marginBottom: 8,
+    paddingVertical: 10,
+  },
+  modalItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  closeButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+  },
+  closeButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
