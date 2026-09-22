@@ -2,7 +2,7 @@ import React from 'react';
 import { AccessibilityInfo } from 'react-native';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import DefaultMonitorScreen, { MonitorScreen } from '../src/screens/MonitorScreen';
-import { TxvTunerScreen } from '../src/screens/TxvTunerScreen';
+import DefaultTxvTunerScreen, { TxvTunerScreen } from '../src/screens/TxvTunerScreen';
 import App from '../App';
 import { MaterialProvider } from '../src/components/SkeuoKit';
 import { THEME } from '../src/constants/theme';
@@ -167,6 +167,10 @@ describe('Phase 4: Screen Integration & End-to-End Tests', () => {
 
     afterEach(() => {
       calcSpy?.mockRestore();
+    });
+
+    it('exports TxvTunerScreen as default export', () => {
+      expect(DefaultTxvTunerScreen).toBe(TxvTunerScreen);
     });
 
     it('renders all major sections in correct order', async () => {
