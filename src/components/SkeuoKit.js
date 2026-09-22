@@ -198,7 +198,9 @@ export function SkeuoGauge({ value, size = 150, min = 0, max = 20, style }) {
   }
 
   const a11yText = numVal !== null
-    ? `Độ giảm nhiệt khí qua dàn lạnh: ${numVal.toFixed(1)} K`
+    ? numVal >= 0
+      ? `Độ giảm nhiệt khí qua dàn lạnh: ${numVal.toFixed(1)} K`
+      : `Độ tăng nhiệt khí qua dàn lạnh: ${Math.abs(numVal).toFixed(1)} K`
     : 'Độ giảm nhiệt khí qua dàn lạnh: chưa có dữ liệu';
 
   // Khi reducedEffects: tính tọa độ kim tĩnh trực tiếp, không dùng transform/rotation
@@ -267,6 +269,8 @@ export function SkeuoPanel({ style, children, ...props }) {
         {
           backgroundColor: theme.surface,
           borderColor: theme.border,
+          borderBottomWidth: 3,
+          borderBottomColor: theme.borderStrong,
         },
         !reducedEffects && theme.cardShadow,
         style,

@@ -234,6 +234,12 @@ describe('SkeuoKit Primitives Unit Tests', () => {
       );
     });
 
+    it('handles negative values in accessibility label semantically (temperature rise)', async () => {
+      const { getByRole } = await renderWithMaterial(<SkeuoGauge value={-8} />);
+      const gauge = getByRole('progressbar');
+      expect(gauge.props.accessibilityLabel).toBe('Độ tăng nhiệt khí qua dàn lạnh: 8.0 K');
+    });
+
     it('in normal mode: renders bezel with strokeWidth=3 and brass center screw', async () => {
       const renderRes = await renderWithMaterial(<SkeuoGauge value={7.4} />, { flat: false });
       const tree = renderRes.toJSON();
@@ -288,7 +294,7 @@ describe('SkeuoKit Primitives Unit Tests', () => {
       expect(flatStyle.borderRadius).toBe(14);
     });
 
-    it('strips cardShadow when reducedEffects=true', async () => {
+    it('strips cardShadow when reducedEffects=true but keeps border structure', async () => {
       const { getByTestId } = await renderWithMaterial(
         <SkeuoPanel testID="panel-flat">
           <Text>Content</Text>
@@ -299,6 +305,8 @@ describe('SkeuoKit Primitives Unit Tests', () => {
 
       expect(flatStyle.elevation).toBeUndefined();
       expect(flatStyle.shadowOffset).toBeUndefined();
+      expect(flatStyle.borderBottomWidth).toBe(3);
+      expect(flatStyle.borderBottomColor).toBe(lightTheme.borderStrong);
       expect(flatStyle.borderRadius).toBe(14);
       expect(flatStyle.backgroundColor).toBe(lightTheme.surface);
     });
