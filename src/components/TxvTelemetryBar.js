@@ -3,7 +3,16 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell, SkeuoLed, SkeuoSwitch } from './SkeuoKit';
 
-export function TxvTelemetryBar({ liveT1, liveT2, liveT3, isAutoSyncSensors, setIsAutoSyncSensors, isOnline, isDemoMode }) {
+export function TxvTelemetryBar({
+  liveT1 = null,
+  liveT2 = null,
+  liveT3 = null,
+  isAutoSyncSensors = true,
+  setIsAutoSyncSensors = () => {},
+  isOnline = false,
+  isDemoMode = false,
+  themeMode = 'light',
+}) {
   const { theme } = useMaterial();
   const active = isDemoMode || isOnline;
   const readings = [
@@ -149,3 +158,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 });
+
+export default TxvTelemetryBar;
