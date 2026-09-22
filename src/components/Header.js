@@ -2,7 +2,37 @@ import React, { useState } from 'react';
 import { View, Text, Modal, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { InstrumentIcon, MetalFace, SkeuoButton, SkeuoInput, useMaterial, SkeuoSwitch, SkeuoLed } from './SkeuoKit';
 
-export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode, toggleTheme, esp32Ip, saveEsp32Ip, flat, setFlat }) {
+// Regex kiểm tra IPv4 chuẩn (hỗ trợ kèm port :8080)
+const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?::\d{1,5})?$/;
+
+// Regex kiểm tra Hostname / URL Wokwi / Local mDNS / localhost
+const HOST_OR_URL_REGEX = /^(https?:\/\/)?([a-zA-Z0-9][-a-zA-Z0-9]*\.)*([a-zA-Z0-9][-a-zA-Z0-9]*)(\.local)?(:\d{1,5})?(\/.*)?$/;
+
+export const isValidHostOrIp = (input) => {
+  if (!input || typeof input !== 'string') return false;
+  const trimmed = input.trim();
+  if (!trimmed) return false;
+  
+  // Nếu có dạng các cụm số phân tách bởi dấu chấm (như địa chỉ IP)
+  const isLikelyIp = /^\d+(\.\d+)*(:\d+)?$/.test(trimmed);
+  if (isLikelyIp) {
+    return IPV4_REGEX.test(trimmed);
+  }
+
+  return HOST_OR_URL_REGEX.test(trimmed);
+};
+
+export function Header({
+  connectionStatus,
+  isDemoMode,
+  toggleDemoMode,
+  themeMode,
+  toggleTheme,
+  esp32Ip = '192.168.1.100',
+  saveEsp32Ip,
+  flat,
+  setFlat,
+}) {
   const { theme } = useMaterial();
   const { width, fontScale } = useWindowDimensions();
   const compact = width / fontScale < 360;
@@ -10,31 +40,62 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
   const [tempIp, setTempIp] = useState(esp32Ip);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const status = isDemoMode ? 'Dữ liệu mô phỏng' : connectionStatus === 'connected' ? 'ESP32 đã kết nối' : 'ESP32 mất kết nối';
-  const openSettings = () => { setTempIp(esp32Ip); setError(''); setModalVisible(true); };
-  const save = async () => {
-    if (!tempIp.trim()) { setError('Vui lòng nhập địa chỉ IP hoặc URL của ESP32.'); return; }
-    setSaving(true);
-    try { await saveEsp32Ip(tempIp.trim()); setModalVisible(false); }
-    catch { setError('Chưa lưu được địa chỉ. Vui lòng thử lại.'); }
-    finally { setSaving(false); }
+  const status = isDemoMode
+    ? 'Dữ liệu mô phỏng'
+    : connectionStatus === 'connected'
+    ? 'ESP32 đã kết nối'
+    : 'ESP32 mất kết nối';
+
+  const openSettings = () => {
+    setTempIp(esp32Ip);
+    setError('');
+    setModalVisible(true);
   };
+
+  const save = async () => {
+    const target = (tempIp || '').trim();
+    if (!target) {
+      setError('Vui lòng nhập địa chỉ IP hoặc URL của ESP32.');
+      return;
+    }
+    if (!isValidHostOrIp(target)) {
+      setError('Địa chỉ không hợp lệ (ví dụ: 192.168.1.100, esp32.local hoặc URL Wokwi).');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (typeof saveEsp32Ip === 'function') {
+        await saveEsp32Ip(target);
+      }
+      setModalVisible(false);
+    } catch {
+      setError('Chưa lưu được địa chỉ. Vui lòng thử lại.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <View style={[styles.shell, { backgroundColor: theme.surface, borderColor: theme.borderStrong }]}>
       <MetalFace />
       <View style={styles.header}>
         <View style={styles.topRow}>
           <View style={styles.brand}>
-            {!compact && <View style={[styles.badge, { backgroundColor: theme.screenBg, borderColor: theme.borderStrong }]}>
-              <InstrumentIcon name="snow" color={theme.screenInk} size={26} />
-            </View>}
+            {!compact && (
+              <View style={[styles.badge, { backgroundColor: theme.screenBg, borderColor: theme.borderStrong }]}>
+                <InstrumentIcon name="snow" color={theme.screenInk} size={26} />
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.eyebrow, { color: theme.inkMuted }]}>DANFOSS / REF TOOLS</Text>
               <Text accessibilityRole="header" style={[styles.title, { color: theme.ink }]}>TXV Tuner</Text>
             </View>
           </View>
           <View style={styles.actions}>
-            <SkeuoButton onPress={toggleTheme} accessibilityLabel={themeMode === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}>
+            <SkeuoButton
+              onPress={toggleTheme}
+              accessibilityLabel={themeMode === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            >
               <InstrumentIcon name={themeMode === 'dark' ? 'sun' : 'moon'} color={theme.ink} />
             </SkeuoButton>
             <SkeuoButton onPress={openSettings} accessibilityLabel="Cài đặt kết nối và giao diện">
@@ -55,15 +116,27 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
       </View>
       <Modal animationType="none" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View accessibilityViewIsModal {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Cài đặt thiết bị' } : {})} style={[styles.modal, { backgroundColor: theme.surface, borderColor: theme.borderStrong }, theme.cardShadow]}>
+          <View
+            accessibilityViewIsModal
+            {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Cài đặt thiết bị' } : {})}
+            style={[styles.modal, { backgroundColor: theme.surface, borderColor: theme.borderStrong }, theme.cardShadow]}
+          >
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={[styles.modalTitle, { color: theme.ink }]}>Cài đặt thiết bị</Text>
               <Text style={[styles.description, { color: theme.inkMuted }]}>Kết nối ESP32 trong cùng mạng WiFi hoặc nhập URL mô phỏng Wokwi.</Text>
               <Text style={[styles.label, { color: theme.ink }]}>Địa chỉ IP / URL ESP32</Text>
-              <SkeuoInput accessibilityLabel="Địa chỉ IP hoặc URL ESP32" autoFocus
+              <SkeuoInput
+                accessibilityLabel="Địa chỉ IP hoặc URL ESP32"
+                autoFocus
                 style={[styles.input, { backgroundColor: theme.surfaceInset, color: theme.ink }]}
-                value={tempIp} onChangeText={value => { setTempIp(value); setError(''); }}
-                placeholder="192.168.1.100" placeholderTextColor={theme.inkMuted} autoCapitalize="none" autoCorrect={false} onSubmitEditing={save} />
+                value={tempIp}
+                onChangeText={(value) => { setTempIp(value); setError(''); }}
+                placeholder="192.168.1.100"
+                placeholderTextColor={theme.inkMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={save}
+              />
               {!!error && <Text accessibilityRole="alert" style={{ color: theme.danger, marginTop: 8 }}>{error}</Text>}
               <View style={[styles.effectRow, { borderColor: theme.border }]}>
                 <View style={{ flex: 1 }}>
@@ -73,8 +146,15 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
                 <SkeuoSwitch accessibilityLabel="Giảm hiệu ứng vật liệu" value={flat} onValueChange={setFlat} />
               </View>
               <View style={styles.modalActions}>
-                <SkeuoButton style={styles.modalButton} onPress={() => setModalVisible(false)}><Text style={{ color: theme.ink, fontWeight: '700' }}>Đóng</Text></SkeuoButton>
-                <SkeuoButton style={[styles.modalButton, { backgroundColor: theme.accent }]} onPress={save} disabled={saving} accessibilityState={{ busy: saving }}>
+                <SkeuoButton style={styles.modalButton} onPress={() => setModalVisible(false)}>
+                  <Text style={{ color: theme.ink, fontWeight: '700' }}>Đóng</Text>
+                </SkeuoButton>
+                <SkeuoButton
+                  style={[styles.modalButton, { backgroundColor: theme.accent }]}
+                  onPress={save}
+                  disabled={saving}
+                  accessibilityState={{ busy: saving }}
+                >
                   <Text style={{ color: theme.onAccent, fontWeight: '700' }}>{saving ? 'Đang lưu…' : 'Lưu kết nối'}</Text>
                 </SkeuoButton>
               </View>
@@ -85,6 +165,9 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
     </View>
   );
 }
+
+export default Header;
+
 const styles = StyleSheet.create({
   shell: { borderBottomWidth: 2, overflow: 'hidden' },
   header: { padding: 16, gap: 14, width: '100%', maxWidth: 960, alignSelf: 'center' },
