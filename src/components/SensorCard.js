@@ -13,23 +13,30 @@ export function SensorCard({ sensor, channelIndex = 0, style }) {
   };
 
   const channelColor = getChannelColor(channelIndex);
+  const isOnline = sensor?.online !== false;
+  const ledState = isOnline ? 'ok' : 'error';
+  const ledColor = isOnline ? channelColor : theme.danger;
+
   const tempVal = typeof sensor?.temp === 'number' && Number.isFinite(sensor.temp)
     ? sensor.temp.toFixed(1)
     : '--';
-  const a11yLabel = `${sensor?.name || 'Cảm biến'}: ${tempVal === '--' ? 'chưa có dữ liệu' : `${tempVal} độ C`}`;
+
+  const a11yLabel = `${sensor?.name || 'Cảm biến'}: ${
+    tempVal === '--' ? 'chưa có dữ liệu' : `${tempVal} độ C`
+  }${!isOnline ? ', mất kết nối' : ''}`;
 
   return (
     <SkeuoPanel testID="sensor-card" style={[styles.card, style]} accessibilityRole="summary" accessibilityLabel={a11yLabel}>
       <View style={styles.header}>
-        <SkeuoLed testID="sensor-led" color={channelColor} size={10} />
-        <Text style={[styles.sensorName, { color: theme.inkMuted }]} numberOfLines={1}>
+        <SkeuoLed testID="sensor-led" state={ledState} color={ledColor} size={10} />
+        <Text style={[styles.sensorName, { color: isOnline ? theme.inkMuted : theme.danger }]} numberOfLines={1}>
           {sensor?.name || `Kênh ${channelIndex + 1}`}
         </Text>
       </View>
 
       <SkeuoLcdWell variant="readout" style={styles.lcdWell}>
         <View style={styles.valueRow}>
-          <Text testID="sensor-value" style={[styles.sensorValue, { color: theme.screenInk }]}>
+          <Text testID="sensor-value" style={[styles.sensorValue, { color: isOnline ? theme.screenInk : theme.screenMuted }]}>
             {tempVal}
           </Text>
           <Text style={[styles.unit, { color: theme.screenMuted }]}>°C</Text>
@@ -41,6 +48,8 @@ export function SensorCard({ sensor, channelIndex = 0, style }) {
     </SkeuoPanel>
   );
 }
+
+export default SensorCard;
 
 const styles = StyleSheet.create({
   card: {

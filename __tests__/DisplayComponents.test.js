@@ -87,6 +87,18 @@ describe('Phase 2: Display Layer Components Unit Tests', () => {
       );
       expect(getNullCard('T2 Ra dàn: chưa có dữ liệu')).toBeTruthy();
     });
+
+    it('shows error LED and offline accessible label when sensor.online is false', async () => {
+      const { getByTestId, getByLabelText } = await renderWithMaterial(
+        <SensorCard sensor={{ name: 'T1 Vào dàn', temp: -22.7, online: false }} channelIndex={0} />
+      );
+
+      const card = getByLabelText('T1 Vào dàn: -22.7 độ C, mất kết nối');
+      expect(card).toBeTruthy();
+
+      const led = getByTestId('sensor-led', { includeHiddenElements: true });
+      expect(StyleSheet.flatten(led.props.style).backgroundColor).toBe(lightTheme.danger);
+    });
   });
 
   // ==========================================================================
