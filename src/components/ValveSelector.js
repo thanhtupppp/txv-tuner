@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { DANFOSS_TXV_MODELS } from '../data/danfossData';
-import { MONO } from '../constants/theme';
-import { useMaterial, SkeuoButton, SkeuoInput } from '../components/SkeuoKit';
+import { useMaterial, SkeuoButton } from '../components/SkeuoKit';
 
 export function ValveSelector({
   selectedValveId,

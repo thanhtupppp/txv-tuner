@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { tempToPressure } from '../data/danfossData';
 import { MONO } from '../constants/theme';
-import { useMaterial, SkeuoButton, SkeuoInput } from '../components/SkeuoKit';
+import { useMaterial, SkeuoButton } from '../components/SkeuoKit';
 
 export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
   const { theme } = useMaterial();

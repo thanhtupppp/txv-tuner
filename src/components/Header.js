@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Modal, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { InstrumentIcon, MetalFace, SkeuoButton, SkeuoInput, useMaterial, SkeuoSwitch } from './SkeuoKit';
 
 export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode, toggleTheme, esp32Ip, saveEsp32Ip, flat, setFlat }) {
   const { theme } = useMaterial();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width / fontScale < 360;
   const [modalVisible, setModalVisible] = useState(false);
   const [tempIp, setTempIp] = useState(esp32Ip);
   const [error, setError] = useState('');
@@ -23,9 +25,9 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
       <View style={styles.header}>
         <View style={styles.topRow}>
           <View style={styles.brand}>
-            <View style={[styles.badge, { backgroundColor: theme.screenBg, borderColor: theme.borderStrong }]}>
+            {!compact && <View style={[styles.badge, { backgroundColor: theme.screenBg, borderColor: theme.borderStrong }]}>
               <InstrumentIcon name="snow" color={theme.screenInk} size={26} />
-            </View>
+            </View>}
             <View style={{ flex: 1 }}>
               <Text style={[styles.eyebrow, { color: theme.inkMuted }]}>DANFOSS / REF TOOLS</Text>
               <Text accessibilityRole="header" style={[styles.title, { color: theme.ink }]}>TXV Tuner</Text>
@@ -53,7 +55,7 @@ export function Header({ connectionStatus, isDemoMode, toggleDemoMode, themeMode
       </View>
       <Modal animationType="none" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View accessibilityViewIsModal style={[styles.modal, { backgroundColor: theme.surface, borderColor: theme.borderStrong }, theme.cardShadow]}>
+          <View accessibilityViewIsModal {...(Platform.OS === 'web' ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Cài đặt thiết bị' } : {})} style={[styles.modal, { backgroundColor: theme.surface, borderColor: theme.borderStrong }, theme.cardShadow]}>
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={[styles.modalTitle, { color: theme.ink }]}>Cài đặt thiết bị</Text>
               <Text style={[styles.description, { color: theme.inkMuted }]}>Kết nối ESP32 trong cùng mạng WiFi hoặc nhập URL mô phỏng Wokwi.</Text>

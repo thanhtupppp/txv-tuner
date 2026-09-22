@@ -96,7 +96,7 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline) {
 
   // Tự động đồng bộ với cảm biến thời gian thực
   useEffect(() => {
-    if (opMode === 'live') {
+    if (opMode === 'live' && isAutoSyncSensors) {
       const t1 = clampTemp(liveT1, TXV_CONFIG.liveFallbackT1C);
       const t2 = clampTemp(liveT2, t1 - tdValue);
       const t3 = clampTemp(liveT3, TXV_CONFIG.liveFallbackT3C);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MONO } from '../constants/theme';
-import { useMaterial, SkeuoButton, SkeuoInput, InstrumentIcon } from '../components/SkeuoKit';
+import { useMaterial, SkeuoButton, SkeuoNumberInput, InstrumentIcon } from '../components/SkeuoKit';
 
 export function TxvInputsGrid({
   opMode,
@@ -19,6 +19,7 @@ export function TxvInputsGrid({
   tdValue,
   evapSource,
   setEvapSource,
+  isAutoSyncSensors,
   setIsAutoSyncSensors,
   themeMode
 }) {
@@ -98,12 +99,12 @@ export function TxvInputsGrid({
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Nhiệt độ bay hơi T_evap (°C):</Text>
             <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
-              <SkeuoInput
+              <SkeuoNumberInput
                 style={[styles.numericInput, { color: theme.ink }]}
                 accessibilityLabel="Nhiệt độ bay hơi, độ C"
                 value={typeof evapTemp === 'number' ? String(evapTemp) : '0'}
                 onChangeText={handleEvapTempChange}
-                editable={opMode === 'manual'}
+                editable={opMode === 'manual' || !isAutoSyncSensors}
                 keyboardType="numeric"
               />
               <Text style={[styles.unitText, { color: theme.inkMuted }]}>°C</Text>
@@ -113,12 +114,12 @@ export function TxvInputsGrid({
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Áp suất bay hơi Pe (bar):</Text>
             <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
-              <SkeuoInput
+              <SkeuoNumberInput
                 style={[styles.numericInput, { color: theme.ink }]}
                 accessibilityLabel="Áp suất bay hơi, bar"
                 value={typeof evapPressure === 'number' ? String(evapPressure) : '0'}
                 onChangeText={handleEvapPressureChange}
-                editable={opMode === 'manual' || evapSource === 'pressure'}
+                editable={opMode === 'manual' || !isAutoSyncSensors || evapSource === 'pressure'}
                 keyboardType="numeric"
               />
               <Text style={[styles.unitText, { color: theme.inkMuted }]}>bar</Text>
@@ -141,7 +142,8 @@ export function TxvInputsGrid({
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Nhiệt độ đo tại ngõ ra dàn lạnh (Ts):</Text>
             <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
-              <SkeuoInput
+              <SkeuoNumberInput
+                onFocus={() => setIsAutoSyncSensors(false)}
                 style={[styles.numericInput, { color: theme.ink }]}
                 accessibilityLabel="Nhiệt độ hơi hút, độ C"
                 value={typeof suctionTemp === 'number' ? String(suctionTemp) : '0'}
@@ -189,7 +191,7 @@ export function TxvInputsGrid({
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Quá nhiệt mong muốn SH_target (K):</Text>
             <View style={[styles.wellInput, { backgroundColor: theme.surfaceInset }]}>
-              <SkeuoInput
+              <SkeuoNumberInput
                 style={[styles.numericInput, { color: theme.ink }]}
                 accessibilityLabel="Quá nhiệt mục tiêu, K"
                 value={typeof targetSh === 'number' ? String(targetSh) : '6'}

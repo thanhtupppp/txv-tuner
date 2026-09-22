@@ -56,6 +56,24 @@ export function SkeuoInput({ style, editable = true, onFocus, onBlur, ...props }
   />;
 }
 
+// Keep transient '-' and decimal separators while typing signed temperatures.
+export function SkeuoNumberInput({ value, onChangeText, onFocus, ...props }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
+  return <SkeuoInput {...props} value={editing ? draft : value}
+    keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
+    onFocus={event => { setDraft(value); setEditing(true); onFocus?.(event); }}
+    onBlur={() => { setEditing(false); setDraft(value); }}
+    onChangeText={text => {
+      if (!/^-?\d*(?:[.,]\d*)?$/.test(text)) return;
+      setDraft(text);
+      const normalized = text.replace(',', '.');
+      if (normalized.trim() !== '' && Number.isFinite(Number(normalized))) onChangeText(normalized);
+    }}
+  />;
+}
+
 export function MetalFace() {
   const { theme, reducedEffects } = useMaterial();
   const id = useId().replace(/:/g, '');

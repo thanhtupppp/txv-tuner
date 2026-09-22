@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { TxvTelemetryBar } from '../components/TxvTelemetryBar';
 import { RefrigerantSelector } from '../components/RefrigerantSelector';
 import { ValveSelector } from '../components/ValveSelector';
@@ -9,7 +9,6 @@ import { TxvHistoryChart } from '../components/TxvHistoryChart';
 import { SimCondPanel } from '../components/SimCondPanel';
 import { useTxvCalculator } from '../hooks/useTxvCalculator';
 import { calculateTxvRecommendation } from '../utils/txvRecommendation';
-import { MONO } from '../constants/theme';
 import { useMaterial } from '../components/SkeuoKit';
 
 export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, themeMode }) {
@@ -120,6 +119,7 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
         tdValue={tdValue}
         evapSource={evapSource}
         setEvapSource={setEvapSource}
+        isAutoSyncSensors={isAutoSyncSensors}
         setIsAutoSyncSensors={setIsAutoSyncSensors}
         themeMode={themeMode}
       />

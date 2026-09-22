@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
-import { MONO } from '../constants/theme';
 import { useMaterial } from '../components/SkeuoKit';
 
 export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode }) {
@@ -17,8 +16,10 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode })
     { actualSh: 10.2 }
   ];
 
-  const minSh = 0;
-  const maxSh = 16;
+  const readings = dataPoints.map(point => point.actualSh).filter(Number.isFinite);
+  const minSh = Math.floor(Math.min(0, targetSh, ...readings) / 4) * 4;
+  const maxSh = Math.ceil(Math.max(16, targetSh, ...readings) / 4) * 4;
+  const ticks = [minSh, (minSh + maxSh) / 2, maxSh];
 
   const getX = (idx) => (idx / (Math.max(1, dataPoints.length - 1))) * (screenWidth - 40) + 30;
   const getY = (val) => chartHeight - 20 - ((val - minSh) / (maxSh - minSh)) * (chartHeight - 40);
@@ -55,7 +56,7 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode })
       <View onLayout={event => setScreenWidth(event.nativeEvent.layout.width)} style={[styles.svgWrapper, { backgroundColor: theme.surfaceInset }]}>
         <Svg width={screenWidth} height={chartHeight}>
           {/* Lưới ngang */}
-          {[4, 8, 12].map((lvl) => (
+          {ticks.map((lvl) => (
             <Line
               key={lvl}
               x1="30"
@@ -89,9 +90,7 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode })
           ) : null}
 
           {/* Nhãn trục Y */}
-          <SvgText x="6" y={getY(12) + 4} fill={theme.inkMuted} fontSize="9" fontWeight="bold">12K</SvgText>
-          <SvgText x="6" y={getY(6) + 4} fill={theme.inkMuted} fontSize="9" fontWeight="bold">6K</SvgText>
-          <SvgText x="6" y={getY(0) + 4} fill={theme.inkMuted} fontSize="9" fontWeight="bold">0K</SvgText>
+          {ticks.map(tick => <SvgText key={tick} x="4" y={getY(tick) + 4} fill={theme.inkMuted} fontSize="10" fontWeight="bold">{tick}K</SvgText>)}
         </Svg>
       </View>
     </View>
