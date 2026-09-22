@@ -5,11 +5,11 @@ import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell } from '../components/SkeuoKit';
 
 export function TxvResultPanel({
-  actualSh,
-  deltaSh,
-  recommendation,
-  currentValve,
-  themeMode
+  actualSh = 6.0,
+  deltaSh = 0.0,
+  recommendation = { status: 'optimal', direction: 'NONE', text: 'Độ quá nhiệt đã chuẩn tối ưu!', statusText: 'ĐẠT CHUẨN DANFOSS' },
+  currentValve = { name: 'Danfoss T2 / TE2' },
+  themeMode = 'light'
 }) {
   const { theme, reducedEffects } = useMaterial();
   const isHigh = recommendation?.status === 'high';
@@ -245,3 +245,5 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+
+export default TxvResultPanel;
