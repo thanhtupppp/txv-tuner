@@ -201,6 +201,16 @@ export function SkeuoGauge({ value, size = 150, min = 0, max = 20, style }) {
     ? `Độ giảm nhiệt khí qua dàn lạnh: ${numVal.toFixed(1)} K`
     : 'Độ giảm nhiệt khí qua dàn lạnh: chưa có dữ liệu';
 
+  // Khi reducedEffects: tính tọa độ kim tĩnh trực tiếp, không dùng transform/rotation
+  const rad = (angle * Math.PI) / 180;
+  const tipX = Number((cx + 46 * Math.cos(rad)).toFixed(2));
+  const tipY = Number((cy + 46 * Math.sin(rad)).toFixed(2));
+  const base1X = Number((cx + 2.5 * Math.cos(rad + Math.PI / 2)).toFixed(2));
+  const base1Y = Number((cy + 2.5 * Math.sin(rad + Math.PI / 2)).toFixed(2));
+  const base2X = Number((cx + 2.5 * Math.cos(rad - Math.PI / 2)).toFixed(2));
+  const base2Y = Number((cy + 2.5 * Math.sin(rad - Math.PI / 2)).toFixed(2));
+  const directNeedlePath = `M ${base1X} ${base1Y} L ${tipX} ${tipY} L ${base2X} ${base2Y} Z`;
+
   return (
     <View
       style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}
@@ -208,8 +218,8 @@ export function SkeuoGauge({ value, size = 150, min = 0, max = 20, style }) {
       accessibilityLabel={a11yText}
     >
       <Svg width={size} height={size} viewBox="0 0 150 150" aria-hidden>
-        <Circle cx={cx} cy={cy} r={70} fill={theme.surfaceRecessed} stroke={theme.borderStrong} strokeWidth={reducedEffects ? 1.5 : 3} />
-        <Circle cx={cx} cy={cy} r={58} fill={theme.screenBg} stroke={theme.shadowDark} strokeWidth={reducedEffects ? 1 : 2} />
+        <Circle cx={cx} cy={cy} r={70} fill={theme.surfaceRecessed} stroke={reducedEffects ? 'none' : theme.borderStrong} strokeWidth={reducedEffects ? 0 : 3} />
+        <Circle cx={cx} cy={cy} r={58} fill={theme.screenBg} stroke={reducedEffects ? theme.border : theme.shadowDark} strokeWidth={reducedEffects ? 1 : 2} />
         <Path d={arcLow} fill="none" stroke={theme.danger} strokeWidth={3} strokeLinecap="round" />
         <Path d={arcOpt} fill="none" stroke={theme.optimal} strokeWidth={3.5} strokeLinecap="round" />
         <Path d={arcHigh} fill="none" stroke={theme.warning} strokeWidth={3} strokeLinecap="round" />
@@ -222,13 +232,23 @@ export function SkeuoGauge({ value, size = 150, min = 0, max = 20, style }) {
           ΔT_air (K)
         </SvgText>
 
-        <G rotation={angle} origin={`${cx}, ${cy}`}>
-          <Path d={`M ${cx} ${cy - 2.5} L ${cx + 46} ${cy} L ${cx} ${cy + 2.5} Z`} fill={theme.danger} />
-          <Circle cx={cx} cy={cy} r={5} fill={theme.brass} />
-        </G>
+        {reducedEffects ? (
+          <Path d={directNeedlePath} fill={theme.danger} />
+        ) : (
+          <G rotation={angle} origin={`${cx}, ${cy}`}>
+            <Path d={`M ${cx} ${cy - 2.5} L ${cx + 46} ${cy} L ${cx} ${cy + 2.5} Z`} fill={theme.danger} />
+            <Circle cx={cx} cy={cy} r={5} fill={theme.brass} />
+          </G>
+        )}
 
-        <Circle cx={cx} cy={cy} r={6} fill={theme.brass} stroke={theme.brassLight} strokeWidth={1.5} />
-        <Circle cx={cx} cy={cy} r={2} fill={theme.shadowDark} />
+        {reducedEffects ? (
+          <Circle cx={cx} cy={cy} r={4} fill={theme.screenInk} />
+        ) : (
+          <>
+            <Circle cx={cx} cy={cy} r={6} fill={theme.brass} stroke={theme.brassLight} strokeWidth={1.5} />
+            <Circle cx={cx} cy={cy} r={2} fill={theme.shadowDark} />
+          </>
+        )}
       </Svg>
     </View>
   );

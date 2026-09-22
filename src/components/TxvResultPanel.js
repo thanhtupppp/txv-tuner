@@ -22,8 +22,6 @@ export function TxvResultPanel({
     return theme.danger;
   };
 
-  const deltaShColor = isOptimal ? theme.optimal : isLow ? theme.cold : theme.danger;
-
   return (
     <View style={styles.container}>
       {/* Khối 1: Kết quả Superheat */}
@@ -51,7 +49,7 @@ export function TxvResultPanel({
           <SkeuoLcdWell variant="readout" style={styles.metricWell}>
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Độ Lệch Mục Tiêu (ΔSH)</Text>
             <View style={styles.valueRow}>
-              <Text style={[styles.numberLarge, { color: deltaShColor }]}>
+              <Text style={[styles.numberLarge, { color: theme.screenInk }]}>
                 {typeof deltaSh === 'number' ? (deltaSh > 0 ? `+${deltaSh.toFixed(1)}` : deltaSh.toFixed(1)) : '--'}
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K</Text>
