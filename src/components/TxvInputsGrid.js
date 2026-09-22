@@ -4,24 +4,24 @@ import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell, SkeuoButton, SkeuoNumberInput, InstrumentIcon } from '../components/SkeuoKit';
 
 export function TxvInputsGrid({
-  opMode,
-  evapTemp,
-  evapPressure,
-  suctionTemp,
+  opMode = 'live',
+  evapTemp = -27.0,
+  evapPressure = 2.29,
+  suctionTemp = -21.0,
   setSuctionTemp,
-  targetSh,
+  targetSh = 6.0,
   setTargetSh,
   handleEvapTempChange,
   handleEvapPressureChange,
   liveT1,
   liveT2,
   liveT3,
-  tdValue,
-  evapSource,
+  tdValue = 7.0,
+  evapSource = 't2',
   setEvapSource,
-  isAutoSyncSensors,
+  isAutoSyncSensors = true,
   setIsAutoSyncSensors,
-  themeMode
+  themeMode,
 }) {
   const { theme } = useMaterial();
 
@@ -342,3 +342,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+export default TxvInputsGrid;
