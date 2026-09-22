@@ -86,19 +86,23 @@ export function MetalFace() {
   </View>;
 }
 
+const ICON_PATHS = Object.freeze({
+  snow: 'M12 2v20M3.34 7l17.32 10M3.34 17L20.66 7M9 4l3 3 3-3M9 20l3-3 3 3',
+  tune: 'M5 4v16M12 4v16M19 4v16M2 8h6M9 15h6M16 9h6',
+  chart: 'M3 3v18h18M6 15l4-5 4 3 6-8',
+  settings: 'M4 7h16M4 17h16M8 4v6M16 14v6',
+  moon: 'M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z',
+  sun: 'M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1 1M18 18l1 1M5 19l1-1M18 6l1-1',
+});
+
 export function InstrumentIcon({ name, color, size = 22 }) {
-  const paths = {
-    snow: 'M12 2v20M3.34 7l17.32 10M3.34 17L20.66 7M9 4l3 3 3-3M9 20l3-3 3 3',
-    tune: 'M5 4v16M12 4v16M19 4v16M2 8h6M9 15h6M16 9h6',
-    chart: 'M3 3v18h18M6 15l4-5 4 3 6-8',
-    settings: 'M4 7h16M4 17h16M8 4v6M16 14v6',
-    moon: 'M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z',
-    sun: 'M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1 1M18 18l1 1M5 19l1-1M18 6l1-1',
-  };
-  return <Svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-    <Path d={paths[name] || paths.tune} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    {name === 'sun' && <Circle cx="12" cy="12" r="4" fill="none" stroke={color} strokeWidth={1.8} />}
-  </Svg>;
+  const path = ICON_PATHS[name] || ICON_PATHS.tune;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <Path d={path} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      {name === 'sun' && <Circle cx="12" cy="12" r="4" fill="none" stroke={color} strokeWidth={1.8} />}
+    </Svg>
+  );
 }
 
 export function SkeuoSwitch(props) {
@@ -288,3 +292,18 @@ const styles = StyleSheet.create({
   lcdWellReadout: { paddingHorizontal: 10, paddingVertical: 8 },
   lcdWellChart: { padding: 8, overflow: 'hidden' },
 });
+
+export default {
+  MaterialProvider,
+  useMaterial,
+  SkeuoButton,
+  SkeuoInput,
+  SkeuoNumberInput,
+  MetalFace,
+  InstrumentIcon,
+  SkeuoSwitch,
+  SkeuoLcdWell,
+  SkeuoLed,
+  SkeuoGauge,
+  SkeuoPanel,
+};
