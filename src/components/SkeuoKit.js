@@ -214,6 +214,8 @@ export function SkeuoGauge({ value, size = 150, min = 0, max = 20, style }) {
   return (
     <View
       style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}
+      accessible={true}
+      role="progressbar"
       accessibilityRole="progressbar"
       accessibilityLabel={a11yText}
     >
