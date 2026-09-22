@@ -58,11 +58,19 @@ export function MonitorScreen({ sensors = [], deltaAir, history = [], themeMode 
       showsVerticalScrollIndicator={false}
     >
       {/* 1. 3 Thẻ cảm biến nhiệt độ chuẩn Skeuomorphic */}
-      <View style={styles.sensorsGrid}>
-        {sensors.map((sensor, idx) => (
-          <SensorCard key={sensor.id ?? idx} sensor={sensor} channelIndex={idx} />
-        ))}
-      </View>
+      {sensors.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, { color: theme.inkMuted }]}>
+            Chưa có cảm biến nào. Vui lòng kết nối ESP32 hoặc bật Demo Mode.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.sensorsGrid}>
+          {sensors.map((sensor, idx) => (
+            <SensorCard key={sensor.id ?? idx} sensor={sensor} channelIndex={idx} />
+          ))}
+        </View>
+      )}
 
       {/* 2. Thẻ GaugePanel: Đồng hồ kim SVG analog kết hợp thông tin chi tiết */}
       <SkeuoPanel style={styles.gaugePanel}>
@@ -270,4 +278,17 @@ const styles = StyleSheet.create({
   chartLcdWell: {
     minHeight: 160,
   },
+  emptyState: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
 });
+
+export default MonitorScreen;

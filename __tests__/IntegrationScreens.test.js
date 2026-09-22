@@ -1,7 +1,7 @@
 import React from 'react';
 import { AccessibilityInfo } from 'react-native';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { MonitorScreen } from '../src/screens/MonitorScreen';
+import DefaultMonitorScreen, { MonitorScreen } from '../src/screens/MonitorScreen';
 import { TxvTunerScreen } from '../src/screens/TxvTunerScreen';
 import App from '../App';
 import { MaterialProvider } from '../src/components/SkeuoKit';
@@ -53,6 +53,18 @@ describe('Phase 4: Screen Integration & End-to-End Tests', () => {
 
       // Verify first card displays T1
       expect(cards[0].props.accessibilityLabel).toBe('T1 Vào dàn: -22.7 độ C');
+    });
+
+    it('shows empty state message when sensors array is empty', async () => {
+      const { getByText } = await renderWithMaterial(
+        <MonitorScreen sensors={[]} deltaAir={null} history={[]} />
+      );
+
+      expect(getByText('Chưa có cảm biến nào. Vui lòng kết nối ESP32 hoặc bật Demo Mode.')).toBeTruthy();
+    });
+
+    it('exports MonitorScreen as default export', () => {
+      expect(DefaultMonitorScreen).toBe(MonitorScreen);
     });
 
     it('displays SkeuoGauge with correct deltaAir value', async () => {
