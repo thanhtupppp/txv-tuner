@@ -100,6 +100,7 @@ export function TxvInputsGrid({
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Nhiệt độ bay hơi T_evap (°C):</Text>
             <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
+                testID="evap-temp-input"
                 style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Nhiệt độ bay hơi, độ C"
                 value={typeof evapTemp === 'number' ? String(evapTemp) : '0'}
@@ -115,6 +116,7 @@ export function TxvInputsGrid({
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Áp suất bay hơi Pe (bar):</Text>
             <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
+                testID="evap-pressure-input"
                 style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Áp suất bay hơi, bar"
                 value={typeof evapPressure === 'number' ? String(evapPressure) : '0'}
@@ -143,6 +145,7 @@ export function TxvInputsGrid({
             <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Nhiệt độ đo tại ngõ ra dàn lạnh (Ts):</Text>
             <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
+                testID="suction-temp-input"
                 onFocus={() => setIsAutoSyncSensors(false)}
                 style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Nhiệt độ hơi hút, độ C"

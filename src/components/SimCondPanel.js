@@ -53,11 +53,11 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
         </SkeuoButton>
 
         {/* Ô hiển thị T_cond dạng LCD mini 48px */}
-        <SkeuoLcdWell variant="readout" style={styles.tempDisplay}>
+        <SkeuoLcdWell testID="cond-display" variant="readout" style={styles.tempDisplay}>
           <Text style={[styles.tempVal, { color: theme.screenInk }]}>{condTemp.toFixed(1)}°C</Text>
           {(isMin || isMax) && (
-            <View style={styles.limitTag}>
-              <SkeuoLed state="error" size={6} />
+            <View testID="cond-limit-tag" style={styles.limitTag}>
+              <SkeuoLed testID="cond-limit-led" state="error" size={6} />
               <Text style={[styles.limitText, { color: theme.danger }]}>
                 {isMin ? 'MIN' : 'MAX'}
               </Text>

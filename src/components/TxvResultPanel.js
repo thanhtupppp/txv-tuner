@@ -28,7 +28,7 @@ export function TxvResultPanel({
       <SkeuoPanel style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTag, { color: theme.inkMuted }]}>KẾT QUẢ ĐỘ QUÁ NHIỆT</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
+          <View testID="status-badge" style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
             <Text style={[styles.statusBadgeText, { color: theme.onAccent }]}>
               {recommendation?.statusText || 'BÌNH THƯỜNG'}
             </Text>
@@ -39,7 +39,7 @@ export function TxvResultPanel({
           <SkeuoLcdWell variant="readout" style={styles.metricWell}>
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Quá Nhiệt Thực Tế (SH)</Text>
             <View style={styles.valueRow}>
-              <Text style={[styles.numberLarge, { color: theme.screenInk }]}>
+              <Text testID="actual-sh-value" style={[styles.numberLarge, { color: theme.screenInk }]}>
                 {typeof actualSh === 'number' ? actualSh.toFixed(1) : '--'}
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K (°C)</Text>
@@ -49,7 +49,7 @@ export function TxvResultPanel({
           <SkeuoLcdWell variant="readout" style={styles.metricWell}>
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Độ Lệch Mục Tiêu (ΔSH)</Text>
             <View style={styles.valueRow}>
-              <Text style={[styles.numberLarge, { color: theme.screenInk }]}>
+              <Text testID="delta-sh-value" style={[styles.numberLarge, { color: theme.screenInk }]}>
                 {typeof deltaSh === 'number' ? (deltaSh > 0 ? `+${deltaSh.toFixed(1)}` : deltaSh.toFixed(1)) : '--'}
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K</Text>
@@ -101,13 +101,13 @@ export function TxvResultPanel({
                 </>
               )}
             </Svg>
-            <Text style={[styles.dialLabel, { color: theme.screenInk }]}>
+            <Text testID="dial-label" style={[styles.dialLabel, { color: theme.screenInk }]}>
               {recommendation?.direction === 'CW' ? '↻ CW' : recommendation?.direction === 'CCW' ? '↺ CCW' : '✓ OK'}
             </Text>
           </SkeuoLcdWell>
 
           <View style={styles.actionDetails}>
-            <Text style={[styles.actionHeading, { color: theme.ink }]}>
+            <Text testID="action-heading" style={[styles.actionHeading, { color: theme.ink }]}>
               {recommendation?.direction === 'NONE'
                 ? 'Độ quá nhiệt đã chuẩn tối ưu!'
                 : `👉 Xoay ${recommendation?.turnsFraction || ''} ${recommendation?.direction === 'CW' ? 'CÙNG' : 'NGƯỢC'} chiều kim đồng hồ (${recommendation?.direction})`}
