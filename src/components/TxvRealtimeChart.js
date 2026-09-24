@@ -9,18 +9,12 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
   const [screenWidth, setScreenWidth] = useState(280);
   const chartHeight = 120;
 
-  // Chuẩn bị dữ liệu
-  const dataPoints = historyData.length > 0 ? historyData : [
-    { actualSh: 5.5, targetSh },
-    { actualSh: 6.2, targetSh },
-    { actualSh: 7.1, targetSh },
-    { actualSh: 6.8, targetSh },
-    { actualSh: 6.0, targetSh },
-  ];
+  const hasData = Array.isArray(historyData) && historyData.length > 0;
+  const dataPoints = hasData ? historyData : [];
 
   const readings = dataPoints.map(point => point.actualSh).filter(Number.isFinite);
-  const minSh = Math.floor(Math.min(0, targetSh, ...readings) / 2) * 2;
-  const maxSh = Math.ceil(Math.max(12, targetSh, ...readings) / 2) * 2;
+  const minSh = Math.floor(Math.min(0, targetSh, ...(readings.length > 0 ? readings : [targetSh])) / 2) * 2;
+  const maxSh = Math.ceil(Math.max(12, targetSh, ...(readings.length > 0 ? readings : [targetSh])) / 2) * 2;
   const ticks = [minSh, (minSh + maxSh) / 2, maxSh];
 
   const getX = (idx) => (idx / (Math.max(1, dataPoints.length - 1))) * (screenWidth - 40) + 30;
@@ -28,19 +22,20 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
 
   // Path cho actual SH
   let actualPath = '';
-  dataPoints.forEach((pt, idx) => {
-    const x = getX(idx);
-    const y = getY(pt.actualSh);
-    if (idx === 0) {
-      actualPath += `M ${x} ${y}`;
-    } else {
-      actualPath += ` L ${x} ${y}`;
-    }
-  });
+  if (hasData) {
+    dataPoints.forEach((pt, idx) => {
+      const x = getX(idx);
+      const y = getY(pt.actualSh);
+      if (idx === 0) {
+        actualPath += `M ${x} ${y}`;
+      } else {
+        actualPath += ` L ${x} ${y}`;
+      }
+    });
+  }
 
   // Path cho target SH (ngang)
   const targetY = getY(targetSh);
-  const targetPath = `M ${getX(0)} ${targetY} L ${getX(dataPoints.length - 1)} ${targetY}`;
 
   return (
     <SkeuoPanel style={styles.card}>
@@ -63,59 +58,68 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }
         onLayout={event => setScreenWidth(event.nativeEvent.layout.width)}
         style={styles.chartLcdWell}
       >
-        <Svg width={screenWidth} height={chartHeight}>
-          {/* Lưới ngang tham chiếu */}
-          {ticks.map((lvl) => (
+        {!hasData ? (
+          <View testID="realtime-chart-empty" style={styles.emptyContainer}>
+            <Text style={[styles.emptyTitle, { color: theme.screenInk }]}>CHƯA CÓ DỮ LIỆU REAL-TIME</Text>
+            <Text style={[styles.emptySubtitle, { color: theme.screenMuted }]}>
+              Chờ dữ liệu từ ESP32 hoặc bật chế độ Demo
+            </Text>
+          </View>
+        ) : (
+          <Svg width={screenWidth} height={chartHeight}>
+            {/* Lưới ngang tham chiếu */}
+            {ticks.map((lvl) => (
+              <Line
+                key={lvl}
+                x1="32"
+                y1={getY(lvl)}
+                x2={screenWidth - 8}
+                y2={getY(lvl)}
+                stroke={theme.borderStrong}
+                strokeWidth="1"
+                strokeDasharray="2 3"
+              />
+            ))}
+
+            {/* Đường target SH (ngang, nét đứt) */}
             <Line
-              key={lvl}
               x1="32"
-              y1={getY(lvl)}
+              y1={targetY}
               x2={screenWidth - 8}
-              y2={getY(lvl)}
-              stroke={theme.borderStrong}
-              strokeWidth="1"
-              strokeDasharray="2 3"
+              y2={targetY}
+              stroke={theme.optimal}
+              strokeWidth="1.5"
+              strokeDasharray="4 3"
             />
-          ))}
 
-          {/* Đường target SH (ngang, nét đứt) */}
-          <Line
-            x1="32"
-            y1={targetY}
-            x2={screenWidth - 8}
-            y2={targetY}
-            stroke={theme.optimal}
-            strokeWidth="1.5"
-            strokeDasharray="4 3"
-          />
+            {/* Đường actual SH */}
+            {actualPath ? (
+              <Path
+                d={actualPath}
+                fill="none"
+                stroke={theme.accent}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ) : null}
 
-          {/* Đường actual SH */}
-          {actualPath ? (
-            <Path
-              d={actualPath}
-              fill="none"
-              stroke={theme.accent}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ) : null}
-
-          {/* Nhãn trục Y: Font MONO 10px màu screenMuted */}
-          {ticks.map(tick => (
-            <SvgText
-              key={tick}
-              x="4"
-              y={getY(tick) + 4}
-              fill={theme.screenMuted}
-              fontSize="10"
-              fontFamily={MONO}
-              fontWeight="bold"
-            >
-              {`${tick}K`}
-            </SvgText>
-          ))}
-        </Svg>
+            {/* Nhãn trục Y: Font MONO 10px màu screenMuted */}
+            {ticks.map(tick => (
+              <SvgText
+                key={tick}
+                x="4"
+                y={getY(tick) + 4}
+                fill={theme.screenMuted}
+                fontSize="10"
+                fontFamily={MONO}
+                fontWeight="bold"
+              >
+                {`${tick}K`}
+              </SvgText>
+            ))}
+          </Svg>
+        )}
       </SkeuoLcdWell>
     </SkeuoPanel>
   );
@@ -158,5 +162,21 @@ const styles = StyleSheet.create({
   },
   chartLcdWell: {
     minHeight: 120,
+  },
+  emptyContainer: {
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 6,
+  },
+  emptyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  emptySubtitle: {
+    fontSize: 11,
+    textAlign: 'center',
   },
 });

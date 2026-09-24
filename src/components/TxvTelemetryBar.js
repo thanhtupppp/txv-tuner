@@ -36,7 +36,7 @@ export function TxvTelemetryBar({
             )}
           </View>
           <Text style={[styles.subtitle, { color: theme.ink }]}>
-            {isDemoMode ? 'Tín hiệu cảm biến mô phỏng' : isOnline ? 'Tín hiệu ESP32 trực tiếp' : 'Mất kết nối · hiển thị số đo gần nhất'}
+            {isDemoMode ? 'Tín hiệu cảm biến mô phỏng' : isOnline ? 'Tín hiệu ESP32 trực tiếp' : 'ESP32 chưa kết nối'}
           </Text>
         </View>
 
@@ -45,6 +45,22 @@ export function TxvTelemetryBar({
           <SkeuoSwitch testID="sync-switch" accessibilityLabel="Tự đồng bộ cảm biến" value={isAutoSyncSensors} onValueChange={setIsAutoSyncSensors} />
         </View>
       </View>
+
+      {isDemoMode && (
+        <View testID="demo-warning-banner" style={[styles.warningBanner, { backgroundColor: theme.surfaceInset, borderColor: theme.warning }]}>
+          <Text style={[styles.warningBannerText, { color: theme.warning }]}>
+            ⚠️ DỮ LIỆU MÔ PHỎNG — KHÔNG PHẢI DỮ LIỆU ESP32
+          </Text>
+        </View>
+      )}
+
+      {!isOnline && !isDemoMode && (
+        <View testID="disconnected-banner" style={[styles.warningBanner, { backgroundColor: theme.surfaceInset, borderColor: theme.danger }]}>
+          <Text style={[styles.warningBannerText, { color: theme.danger }]}>
+            ⚠️ ESP32 chưa kết nối — Tự động khóa đề xuất điều chỉnh van
+          </Text>
+        </View>
+      )}
 
       {offlineSensors.length > 0 && isOnline && (
         <View testID="offline-warning-banner" style={[styles.warningBanner, { backgroundColor: theme.surfaceInset, borderColor: theme.danger }]}>

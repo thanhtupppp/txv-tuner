@@ -40,21 +40,13 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
     expect(getByText('Target SH (6.0K)')).toBeTruthy();
   });
 
-  it('displays default demo data when historyData is empty', async () => {
-    const { toJSON } = await renderWithMaterial(
+  it('displays empty state when historyData is empty', async () => {
+    const { getByTestId, getByText } = await renderWithMaterial(
       <TxvRealtimeChart historyData={[]} targetSh={6.0} />
     );
 
-    const tree = toJSON();
-    const stringified = JSON.stringify(tree);
-
-    // Verify actual SH path exists (accent color)
-    const accentPayload = hexToSvgPayload(lightTheme.accent);
-    expect(stringified).toContain(String(accentPayload));
-
-    // Verify target SH line exists (optimal color)
-    const optimalPayload = hexToSvgPayload(lightTheme.optimal);
-    expect(stringified).toContain(String(optimalPayload));
+    expect(getByTestId('realtime-chart-empty')).toBeTruthy();
+    expect(getByText(/CHƯA CÓ DỮ LIỆU REAL-TIME/)).toBeTruthy();
   });
 
   it('renders custom history data with correct actual SH path', async () => {
@@ -81,9 +73,14 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
     expect(stringified).toContain(String(optimalPayload));
   });
 
+  const sampleHistory = [
+    { time: 1000, actualSh: 5.0, targetSh: 6.0 },
+    { time: 2000, actualSh: 7.0, targetSh: 6.0 },
+  ];
+
   it('displays Y-axis labels with MONO font and screenMuted color', async () => {
     const { toJSON } = await renderWithMaterial(
-      <TxvRealtimeChart historyData={[]} targetSh={6.0} />
+      <TxvRealtimeChart historyData={sampleHistory} targetSh={6.0} />
     );
 
     const tree = toJSON();
@@ -118,7 +115,7 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
 
   it('renders horizontal grid lines with borderStrong color and dashed stroke', async () => {
     const { toJSON } = await renderWithMaterial(
-      <TxvRealtimeChart historyData={[]} targetSh={6.0} />
+      <TxvRealtimeChart historyData={sampleHistory} targetSh={6.0} />
     );
 
     const tree = toJSON();
@@ -134,7 +131,7 @@ describe('Phase 5: TxvRealtimeChart Component', () => {
 
   it('renders target SH as dashed line with optimal color', async () => {
     const { toJSON } = await renderWithMaterial(
-      <TxvRealtimeChart historyData={[]} targetSh={6.0} />
+      <TxvRealtimeChart historyData={sampleHistory} targetSh={6.0} />
     );
 
     const tree = toJSON();

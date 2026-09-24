@@ -53,7 +53,9 @@ export function Header({
     ? 'ESP32 đã kết nối'
     : connectionStatus === 'reconnecting'
     ? 'Đang kết nối lại…'
-    : 'ESP32 mất kết nối';
+    : connectionStatus === 'disconnected'
+    ? 'ESP32 mất kết nối'
+    : 'ESP32 chưa kết nối';
 
   const openSettings = () => {
     setTempIp(esp32Ip);

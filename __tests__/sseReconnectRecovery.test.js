@@ -336,11 +336,6 @@ describe('SSE Reconnect and Recovery Behavior', () => {
 
       const { result } = await renderHook(() => useTemperatures());
 
-      // Turn off demo mode
-      await hookAct(async () => {
-        result.current.toggleDemoMode();
-      });
-
       // 1. Initial live stream data before drop
       await hookAct(async () => {
         capturedOnStatusChange('connected', { connected: true, attempt: 0 });

@@ -371,11 +371,6 @@ describe('End-to-End SSE Telemetry Flow', () => {
 
       const { result } = await renderHook(() => useTemperatures());
 
-      // Toggle off demo mode to trigger subscription
-      await hookAct(async () => {
-        result.current.toggleDemoMode();
-      });
-
       expect(esp32Service.subscribeEsp32Stream).toHaveBeenCalled();
 
       // Simulate incoming normalized telemetry stream event

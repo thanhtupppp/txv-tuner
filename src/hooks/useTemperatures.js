@@ -4,26 +4,37 @@ import { subscribeEsp32Stream, fetchEsp32Temperatures, fetchEsp32Stats } from '.
 
 const STORAGE_KEY_IP = '@esp32_ip';
 
+export const INITIAL_OFFLINE_DATA = Object.freeze({
+  sensors: [
+    { id: 0, name: 'T1 Vào dàn', temp: null, temperatureC: null, online: false },
+    { id: 1, name: 'T2 Ra dàn', temp: null, temperatureC: null, online: false },
+    { id: 2, name: 'T3 Bầu TXV', temp: null, temperatureC: null, online: false },
+  ],
+  deltaAir: null,
+  uptime: null,
+});
+
+export const INITIAL_DEMO_DATA = Object.freeze({
+  sensors: [
+    { id: 0, name: 'T1 Vào dàn', temp: -22.7, temperatureC: -22.7, online: true },
+    { id: 1, name: 'T2 Ra dàn', temp: -30.1, temperatureC: -30.1, online: true },
+    { id: 2, name: 'T3 Bầu TXV', temp: -19.9, temperatureC: -19.9, online: true },
+  ],
+  deltaAir: 7.4,
+  uptime: 1240,
+});
+
 export function useTemperatures() {
   const [esp32Ip, setEsp32Ip] = useState('192.168.4.1');
-  const [isDemoMode, setIsDemoMode] = useState(true); // Mặc định Demo để người dùng trải nghiệm ngay
-  const [connectionStatus, setConnectionStatus] = useState('demo'); // 'connected' | 'reconnecting' | 'offline' | 'demo'
+  const [isDemoMode, setIsDemoMode] = useState(false); // Mặc định chế độ thực (OFFLINE), chỉ dùng số liệu mô phỏng khi người dùng chủ động bật Demo
+  const [connectionStatus, setConnectionStatus] = useState('offline'); // 'connected' | 'reconnecting' | 'offline' | 'demo'
   const [lastUpdate, setLastUpdate] = useState(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [heartbeatInfo, setHeartbeatInfo] = useState(null);
   const [esp32Stats, setEsp32Stats] = useState(null);
   const controllerRef = useRef(null);
   
-  const [data, setData] = useState({
-    sensors: [
-      { id: 0, name: 'T1 Vào dàn', temp: -22.7, temperatureC: -22.7, online: true },
-      { id: 1, name: 'T2 Ra dàn', temp: -30.1, temperatureC: -30.1, online: true },
-      { id: 2, name: 'T3 Bầu TXV', temp: -19.9, temperatureC: -19.9, online: true }
-    ],
-    deltaAir: 7.4,
-    uptime: 1240
-  });
-
+  const [data, setData] = useState(INITIAL_OFFLINE_DATA);
   const [history, setHistory] = useState([]);
   const [warningsLog, setWarningsLog] = useState([]);
 
@@ -68,21 +79,41 @@ export function useTemperatures() {
   const toggleDemoMode = useCallback(() => {
     setIsDemoMode((prev) => {
       const next = !prev;
-      setConnectionStatus(next ? 'demo' : 'offline');
+      if (next) {
+        // Bật Demo: Nạp bộ dữ liệu mô phỏng ban đầu
+        setData(INITIAL_DEMO_DATA);
+        setConnectionStatus('demo');
+        setEsp32Stats({
+          freeHeap: 198400,
+          uptime: 1240,
+          wifiRSSI: -45,
+          clientConnected: true,
+          wifiSSID: 'TuSmart-TXV-Tuner',
+          wifiIP: '192.168.4.1',
+          wifiGateway: '192.168.4.1',
+          sensorCount: 3,
+        });
+      } else {
+        // Tắt Demo: Dừng và xóa sạch toàn bộ dữ liệu mô phỏng, trả về trạng thái offline an toàn
+        setData(INITIAL_OFFLINE_DATA);
+        setHistory([]);
+        setEsp32Stats(null);
+        setConnectionStatus('offline');
+      }
       return next;
     });
   }, []);
 
-  // Giả lập dữ liệu trong Demo Mode
+  // Giả lập dữ liệu trong Demo Mode (chỉ chạy khi isDemoMode === true)
   useEffect(() => {
     if (!isDemoMode) return;
 
     const interval = setInterval(() => {
       setData((prev) => {
         // Biến thiên ngẫu nhiên nhẹ ±0.15°C
-        const s0 = prev.sensors[0].temperatureC ?? prev.sensors[0].temp;
-        const s1 = prev.sensors[1].temperatureC ?? prev.sensors[1].temp;
-        const s2 = prev.sensors[2].temperatureC ?? prev.sensors[2].temp;
+        const s0 = prev?.sensors?.[0]?.temperatureC ?? prev?.sensors?.[0]?.temp ?? -22.7;
+        const s1 = prev?.sensors?.[1]?.temperatureC ?? prev?.sensors?.[1]?.temp ?? -30.1;
+        const s2 = prev?.sensors?.[2]?.temperatureC ?? prev?.sensors?.[2]?.temp ?? -19.9;
         const t1 = Number((s0 + (Math.random() - 0.5) * 0.2).toFixed(1));
         const t2 = Number((s1 + (Math.random() - 0.5) * 0.2).toFixed(1));
         const t3 = Number((s2 + (Math.random() - 0.5) * 0.3).toFixed(1));
@@ -95,7 +126,7 @@ export function useTemperatures() {
             { id: 2, name: 'T3 Bầu TXV', temp: t3, temperatureC: t3, online: true }
           ],
           deltaAir,
-          uptime: (prev.uptime || 0) + 2
+          uptime: (prev?.uptime || 1240) + 2
         };
 
         setHistory((h) => [
@@ -150,20 +181,34 @@ export function useTemperatures() {
         setReconnectAttempt(0);
       }
 
-      // Nếu offline, kích hoạt polling dự phòng định kỳ
-      if (status === 'offline' && !fallbackPollInterval) {
-        fallbackPollInterval = setInterval(async () => {
-          if (!isMounted) return;
-          try {
-            const json = await fetchEsp32Temperatures(esp32Ip, 2500);
-            if (isMounted && json) {
-              handleStreamData(json);
-              setConnectionStatus('connected');
+      // Nếu offline, đánh dấu sensors offline để khóa an toàn liên động, xóa stats và kích hoạt polling dự phòng
+      if (status === 'offline') {
+        setData((prev) => {
+          if (!prev?.sensors) return INITIAL_OFFLINE_DATA;
+          return {
+            ...prev,
+            sensors: prev.sensors.map((s) => ({
+              ...s,
+              online: false,
+            })),
+          };
+        });
+        setEsp32Stats(null);
+
+        if (!fallbackPollInterval) {
+          fallbackPollInterval = setInterval(async () => {
+            if (!isMounted) return;
+            try {
+              const json = await fetchEsp32Temperatures(esp32Ip, 2500);
+              if (isMounted && json) {
+                handleStreamData(json);
+                setConnectionStatus('connected');
+              }
+            } catch (e) {
+              if (isMounted) setConnectionStatus('offline');
             }
-          } catch (e) {
-            if (isMounted) setConnectionStatus('offline');
-          }
-        }, 3000);
+          }, 3000);
+        }
       } else if (status === 'connected' && fallbackPollInterval) {
         clearInterval(fallbackPollInterval);
         fallbackPollInterval = null;

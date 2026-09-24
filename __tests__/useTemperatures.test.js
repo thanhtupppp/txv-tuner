@@ -9,15 +9,20 @@ describe('useTemperatures hook with SSE streaming', () => {
     jest.clearAllMocks();
   });
 
-  it('starts in demo mode with initial demo sensors and status', async () => {
+  it('starts in offline mode with null sensor readings and safe status', async () => {
     const { result } = await renderHook(() => useTemperatures());
 
-    expect(result.current.isDemoMode).toBe(true);
-    expect(result.current.connectionStatus).toBe('demo');
+    expect(result.current.isDemoMode).toBe(false);
+    expect(result.current.connectionStatus).toBe('offline');
     expect(result.current.data.sensors).toHaveLength(3);
+    result.current.data.sensors.forEach((s) => {
+      expect(s.temp).toBeNull();
+      expect(s.temperatureC).toBeNull();
+      expect(s.online).toBe(false);
+    });
   });
 
-  it('subscribes to ESP32 stream when demo mode is toggled off', async () => {
+  it('subscribes to ESP32 stream automatically on mount when in live mode', async () => {
     let capturedOnData;
     let capturedOnStatusChange;
     let capturedOnHeartbeat;
@@ -32,11 +37,6 @@ describe('useTemperatures hook with SSE streaming', () => {
     });
 
     const { result } = await renderHook(() => useTemperatures());
-
-    // Toggle demo mode off
-    await act(async () => {
-      result.current.toggleDemoMode();
-    });
 
     expect(result.current.isDemoMode).toBe(false);
     expect(esp32Service.subscribeEsp32Stream).toHaveBeenCalled();
@@ -115,10 +115,6 @@ describe('useTemperatures hook with SSE streaming', () => {
     });
 
     const { result } = await renderHook(() => useTemperatures());
-
-    await act(async () => {
-      result.current.toggleDemoMode();
-    });
 
     // Send 35 data points
     await act(async () => {
