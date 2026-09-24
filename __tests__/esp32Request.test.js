@@ -94,11 +94,14 @@ describe('requestEsp32', () => {
       }),
     );
 
-    const request = requestEsp32('http://esp32/api/stats', { timeoutMs: 10 });
-    await jest.advanceTimersByTimeAsync(20);
-
-    await expect(request).rejects.toMatchObject({
+    const expectation = expect(
+      requestEsp32('http://esp32/api/stats', { timeoutMs: 10 }),
+    ).rejects.toMatchObject({
       code: ESP32_ERROR_CODES.TIMEOUT,
     });
+
+    await jest.advanceTimersByTimeAsync(20);
+
+    await expectation;
   });
 });
