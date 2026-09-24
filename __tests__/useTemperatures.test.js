@@ -20,12 +20,15 @@ describe('useTemperatures hook with SSE streaming', () => {
   it('subscribes to ESP32 stream when demo mode is toggled off', async () => {
     let capturedOnData;
     let capturedOnStatusChange;
-    const mockUnsubscribe = jest.fn();
+    let capturedOnHeartbeat;
+    const mockController = jest.fn();
+    mockController.reconnect = jest.fn();
 
-    esp32Service.subscribeEsp32Stream.mockImplementation(({ onData, onStatusChange }) => {
+    esp32Service.subscribeEsp32Stream.mockImplementation(({ onData, onStatusChange, onHeartbeat }) => {
       capturedOnData = onData;
       capturedOnStatusChange = onStatusChange;
-      return mockUnsubscribe;
+      capturedOnHeartbeat = onHeartbeat;
+      return mockController;
     });
 
     const { result } = await renderHook(() => useTemperatures());
@@ -47,13 +50,38 @@ describe('useTemperatures hook with SSE streaming', () => {
           { id: 2, name: 'T3 Bầu TXV', temp: -12.1, online: true }
         ],
         deltaAir: 9.5,
-        uptime: 100
+        uptime: 100,
+        receivedAt: 1700000000000
       });
-      capturedOnStatusChange('connected');
+      capturedOnStatusChange('connected', { connected: true, attempt: 0 });
     });
 
     expect(result.current.connectionStatus).toBe('connected');
     expect(result.current.data.sensors[0].temp).toBe(-15.5);
     expect(result.current.data.deltaAir).toBe(9.5);
+    expect(result.current.lastUpdate).toBeTruthy();
+
+    // Simulate heartbeat event
+    await act(async () => {
+      capturedOnHeartbeat({
+        alive: true,
+        freeHeap: 190000,
+        uptime: 105
+      });
+    });
+    expect(result.current.heartbeatInfo?.freeHeap).toBe(190000);
+
+    // Simulate reconnect status
+    await act(async () => {
+      capturedOnStatusChange('reconnecting', { attempt: 2, maxAttempts: 10 });
+    });
+    expect(result.current.connectionStatus).toBe('reconnecting');
+    expect(result.current.reconnectAttempt).toBe(2);
+
+    // Call manual reconnect
+    await act(async () => {
+      result.current.reconnect();
+    });
+    expect(mockController.reconnect).toHaveBeenCalled();
   });
 });

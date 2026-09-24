@@ -30,6 +30,7 @@ export function Header({
   toggleTheme,
   esp32Ip = '192.168.1.100',
   saveEsp32Ip,
+  reconnect,
   flat,
   setFlat,
 }) {
@@ -44,6 +45,8 @@ export function Header({
     ? 'Dữ liệu mô phỏng'
     : connectionStatus === 'connected'
     ? 'ESP32 đã kết nối'
+    : connectionStatus === 'reconnecting'
+    ? 'Đang kết nối lại…'
     : 'ESP32 mất kết nối';
 
   const openSettings = () => {
@@ -107,6 +110,16 @@ export function Header({
           <View style={styles.connection}>
             <SkeuoLed state={isDemoMode ? 'warn' : connectionStatus === 'connected' ? 'ok' : 'error'} size={10} />
             <Text style={[styles.status, { color: theme.ink }]}>{status}</Text>
+            {!isDemoMode && connectionStatus !== 'connected' && typeof reconnect === 'function' && (
+              <SkeuoButton
+                testID="header-reconnect-btn"
+                onPress={reconnect}
+                style={styles.reconnectBtn}
+                accessibilityLabel="Thử kết nối lại ESP32"
+              >
+                <Text style={[styles.reconnectBtnText, { color: theme.accent }]}>Thử lại</Text>
+              </SkeuoButton>
+            )}
           </View>
           <View style={styles.demo}>
             <Text style={[styles.status, { color: theme.ink }]}>Demo {isDemoMode ? 'bật' : 'tắt'}</Text>
@@ -192,4 +205,6 @@ const styles = StyleSheet.create({
   effectRow: { borderTopWidth: 1, paddingTop: 18, marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
   modalActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   modalButton: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  reconnectBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, minHeight: 28, marginLeft: 4 },
+  reconnectBtnText: { fontSize: 11, fontWeight: '700' },
 });

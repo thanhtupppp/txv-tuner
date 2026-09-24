@@ -1,4 +1,4 @@
-import { subscribeEsp32Stream } from '../src/services/esp32Service';
+import { subscribeEsp32Stream, fetchEsp32Stats, fetchEsp32Temperatures } from '../src/services/esp32Service';
 
 class MockEventSource {
   constructor(url, options) {
@@ -29,13 +29,14 @@ describe('esp32Service SSE Streaming', () => {
   beforeEach(() => {
     MockEventSource.instances = [];
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   it('normalizes IP to /api/stream and opens EventSource', () => {
     const onData = jest.fn();
     const onStatusChange = jest.fn();
 
-    const unsubscribe = subscribeEsp32Stream({
+    const controller = subscribeEsp32Stream({
       ip: '192.168.4.1',
       onData,
       onStatusChange,
@@ -45,17 +46,17 @@ describe('esp32Service SSE Streaming', () => {
     expect(MockEventSource.instances.length).toBe(1);
     const instance = MockEventSource.instances[0];
     expect(instance.url).toBe('http://192.168.4.1/api/stream');
-    expect(onStatusChange).toHaveBeenCalledWith('connecting');
+    expect(onStatusChange).toHaveBeenCalledWith('connecting', expect.any(Object));
 
-    unsubscribe();
+    controller.unsubscribe();
     expect(instance.closed).toBe(true);
   });
 
-  it('handles temperatures event and passes parsed json to onData', () => {
+  it('handles temperatures event and passes parsed json with timestamp enrichment to onData', () => {
     const onData = jest.fn();
     const onStatusChange = jest.fn();
 
-    subscribeEsp32Stream({
+    const controller = subscribeEsp32Stream({
       ip: 'http://192.168.4.1/',
       onData,
       onStatusChange,
@@ -77,25 +78,120 @@ describe('esp32Service SSE Streaming', () => {
 
     instance.dispatchEvent('temperatures', { data: JSON.stringify(samplePayload) });
 
-    expect(onData).toHaveBeenCalledWith(samplePayload);
-    expect(onStatusChange).toHaveBeenCalledWith('connected');
+    expect(onData).toHaveBeenCalledWith(expect.objectContaining({
+      ...samplePayload,
+      receivedAt: expect.any(Number)
+    }));
+    expect(onStatusChange).toHaveBeenCalledWith('connected', expect.any(Object));
+    controller.unsubscribe();
   });
 
-  it('handles error event by setting status to offline', () => {
+  it('handles heartbeat event and invokes onHeartbeat callback', () => {
     const onData = jest.fn();
+    const onHeartbeat = jest.fn();
     const onStatusChange = jest.fn();
 
-    const unsubscribe = subscribeEsp32Stream({
+    const controller = subscribeEsp32Stream({
       ip: '192.168.4.1',
       onData,
+      onHeartbeat,
       onStatusChange,
       EventSourceImpl: MockEventSource
     });
 
     const instance = MockEventSource.instances[0];
-    instance.dispatchEvent('error', new Error('Connection lost'));
+    instance.dispatchEvent('heartbeat', {
+      data: JSON.stringify({ alive: true, freeHeap: 185000, uptime: 120 })
+    });
 
-    expect(onStatusChange).toHaveBeenCalledWith('offline');
-    unsubscribe();
+    expect(onHeartbeat).toHaveBeenCalledWith(expect.objectContaining({
+      alive: true,
+      freeHeap: 185000,
+      uptime: 120,
+      receivedAt: expect.any(Number)
+    }));
+    expect(onStatusChange).toHaveBeenCalledWith('connected', expect.any(Object));
+    controller.unsubscribe();
+  });
+
+  it('triggers watchdog timeout when no data/heartbeat arrives within timeout window', () => {
+    jest.useFakeTimers();
+    const onData = jest.fn();
+    const onStatusChange = jest.fn();
+
+    const controller = subscribeEsp32Stream({
+      ip: '192.168.4.1',
+      onData,
+      onStatusChange,
+      heartbeatTimeoutMs: 5000,
+      EventSourceImpl: MockEventSource
+    });
+
+    const firstInstance = MockEventSource.instances[0];
+    // Giả lập kết nối thành công ban đầu
+    firstInstance.dispatchEvent('connected', {});
+    expect(onStatusChange).toHaveBeenCalledWith('connected', expect.any(Object));
+
+    // Tua qua thời gian timeout 5000ms
+    jest.advanceTimersByTime(5050);
+
+    // Watchdog phải đóng kết nối và kích hoạt reconnect
+    expect(firstInstance.closed).toBe(true);
+    expect(onStatusChange).toHaveBeenCalledWith('reconnecting', expect.objectContaining({
+      reason: 'heartbeat_timeout'
+    }));
+
+    controller.unsubscribe();
+  });
+
+  it('implements exponential backoff and caps at maxAttempts', () => {
+    jest.useFakeTimers();
+    const onData = jest.fn();
+    const onStatusChange = jest.fn();
+    const onError = jest.fn();
+
+    const controller = subscribeEsp32Stream({
+      ip: '192.168.4.1',
+      onData,
+      onStatusChange,
+      onError,
+      initialRetryDelay: 1000,
+      maxAttempts: 3,
+      EventSourceImpl: MockEventSource
+    });
+
+    // Lần 1 thất bại
+    MockEventSource.instances[0].dispatchEvent('error', new Error('Fail 1'));
+    expect(onStatusChange).toHaveBeenCalledWith('reconnecting', expect.objectContaining({ attempt: 1, maxAttempts: 3 }));
+
+    // Advance timer 1000ms
+    jest.advanceTimersByTime(1050);
+    expect(MockEventSource.instances.length).toBe(2);
+
+    // Lần 2 thất bại
+    MockEventSource.instances[1].dispatchEvent('error', new Error('Fail 2'));
+    expect(onStatusChange).toHaveBeenCalledWith('reconnecting', expect.objectContaining({ attempt: 2, maxAttempts: 3 }));
+
+    // Advance timer (1000 * 1.5 = 1500ms)
+    jest.advanceTimersByTime(1550);
+    expect(MockEventSource.instances.length).toBe(3);
+
+    // Lần 3 thất bại (vượt quá maxAttempts)
+    MockEventSource.instances[2].dispatchEvent('error', new Error('Fail 3'));
+    expect(onStatusChange).toHaveBeenCalledWith('offline', expect.objectContaining({
+      maxAttemptsReached: true,
+      attempt: 3
+    }));
+    expect(onError).toHaveBeenCalled();
+
+    // Không tự động reconnect thêm lần nào nữa
+    jest.advanceTimersByTime(30000);
+    expect(MockEventSource.instances.length).toBe(3);
+
+    // Nhưng cho phép gọi manual reconnect()
+    controller.reconnect();
+    expect(MockEventSource.instances.length).toBe(4);
+
+    controller.unsubscribe();
   });
 });

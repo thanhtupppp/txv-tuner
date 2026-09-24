@@ -19,6 +19,9 @@ WiFiClient sseClient;
 unsigned long lastPushTime = 0;
 const unsigned long PUSH_INTERVAL_MS = 1000; // Đẩy dữ liệu mỗi 1s
 
+unsigned long lastHeartbeat = 0;
+const unsigned long HEARTBEAT_INTERVAL_MS = 10000; // Heartbeat mỗi 10s
+
 void handleSSE();
 void handleGetTemperatures();
 void sendSSEMessage(const String& event, const String& data);
@@ -43,6 +46,20 @@ void setup() {
   // Endpoint Polling dự phòng
   server.on("/api/temperatures", HTTP_GET, handleGetTemperatures);
   
+  // Endpoint Thống kê trạng thái ESP32
+  server.on("/api/stats", HTTP_GET, []() {
+    DynamicJsonDocument doc(256);
+    doc["freeHeap"] = ESP.getFreeHeap();
+    doc["uptime"] = millis() / 1000;
+    doc["clientConnected"] = (sseClient && sseClient.connected());
+    doc["wifiRSSI"] = WiFi.RSSI();
+    
+    String json;
+    serializeJson(doc, json);
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.send(200, "application/json", json);
+  });
+  
   // Health check
   server.on("/api/health", HTTP_GET, []() {
     server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -56,12 +73,22 @@ void setup() {
 void loop() {
   server.handleClient();
   
-  // Non-blocking timer: Đẩy dữ liệu qua SSE
   unsigned long now = millis();
+
+  // Đẩy dữ liệu cảm biến định kỳ qua SSE
   if (now - lastPushTime >= PUSH_INTERVAL_MS) {
     lastPushTime = now;
     if (sseClient && sseClient.connected()) {
       pushSSEData();
+    }
+  }
+
+  // Đẩy heartbeat định kỳ qua SSE mỗi 10s
+  if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+    lastHeartbeat = now;
+    if (sseClient && sseClient.connected()) {
+      String hb = "{\"alive\":true,\"freeHeap\":" + String(ESP.getFreeHeap()) + ",\"uptime\":" + String(now / 1000) + "}";
+      sendSSEMessage("heartbeat", hb);
     }
   }
 }
@@ -123,6 +150,8 @@ void buildSensorPayload(DynamicJsonDocument& doc) {
   }
   
   doc["uptime"] = millis() / 1000;
+  doc["heartbeat"] = true;
+  doc["serverTimestamp"] = millis();
 }
 
 void pushSSEData() {

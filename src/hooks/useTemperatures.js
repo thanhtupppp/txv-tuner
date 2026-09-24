@@ -7,7 +7,11 @@ const STORAGE_KEY_IP = '@esp32_ip';
 export function useTemperatures() {
   const [esp32Ip, setEsp32Ip] = useState('192.168.1.100');
   const [isDemoMode, setIsDemoMode] = useState(true); // Mặc định Demo để người dùng trải nghiệm ngay
-  const [connectionStatus, setConnectionStatus] = useState('demo'); // 'connected' | 'offline' | 'demo'
+  const [connectionStatus, setConnectionStatus] = useState('demo'); // 'connected' | 'reconnecting' | 'offline' | 'demo'
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [heartbeatInfo, setHeartbeatInfo] = useState(null);
+  const controllerRef = useRef(null);
   
   const [data, setData] = useState({
     sensors: [
@@ -79,6 +83,12 @@ export function useTemperatures() {
     return () => clearInterval(interval);
   }, [isDemoMode]);
 
+  const reconnect = useCallback(() => {
+    if (controllerRef.current && typeof controllerRef.current.reconnect === 'function') {
+      controllerRef.current.reconnect();
+    }
+  }, []);
+
   // Luồng dữ liệu thời gian thực từ ESP32 (ưu tiên SSE streaming, tự động polling fallback nếu rớt stream)
   useEffect(() => {
     if (isDemoMode) return;
@@ -90,6 +100,8 @@ export function useTemperatures() {
       if (!isMounted || !payload) return;
       setData(payload);
       setConnectionStatus('connected');
+      setLastUpdate(payload.receivedAt || Date.now());
+      setReconnectAttempt(0);
 
       const s0 = payload?.sensors?.[0]?.temp;
       const s1 = payload?.sensors?.[1]?.temp;
@@ -102,9 +114,14 @@ export function useTemperatures() {
       }
     };
 
-    const handleStatusChange = (status) => {
+    const handleStatusChange = (status, meta = {}) => {
       if (!isMounted) return;
       setConnectionStatus(status);
+      if (typeof meta.attempt === 'number') {
+        setReconnectAttempt(meta.attempt);
+      } else if (status === 'connected') {
+        setReconnectAttempt(0);
+      }
 
       // Nếu offline, kích hoạt polling dự phòng định kỳ
       if (status === 'offline' && !fallbackPollInterval) {
@@ -126,15 +143,27 @@ export function useTemperatures() {
       }
     };
 
-    const unsubscribe = subscribeEsp32Stream({
+    const controller = subscribeEsp32Stream({
       ip: esp32Ip,
       onData: handleStreamData,
+      onHeartbeat: (hb) => {
+        if (!isMounted) return;
+        setHeartbeatInfo(hb);
+        setLastUpdate(hb.receivedAt || Date.now());
+      },
       onStatusChange: handleStatusChange
     });
 
+    controllerRef.current = controller;
+
     return () => {
       isMounted = false;
-      unsubscribe();
+      controllerRef.current = null;
+      if (typeof controller === 'function') {
+        controller();
+      } else if (controller && typeof controller.unsubscribe === 'function') {
+        controller.unsubscribe();
+      }
       if (fallbackPollInterval) {
         clearInterval(fallbackPollInterval);
       }
@@ -145,6 +174,10 @@ export function useTemperatures() {
     data,
     history,
     connectionStatus,
+    lastUpdate,
+    reconnectAttempt,
+    heartbeatInfo,
+    reconnect,
     isDemoMode,
     toggleDemoMode,
     esp32Ip,
