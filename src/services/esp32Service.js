@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { startNetworkMonitoring } from './networkMonitor';
+import { normalizeTelemetry } from '../domain/telemetry/normalizeTelemetry';
 import { requestEsp32 } from './esp32Request';
 import { normalizeEsp32Error } from './esp32Errors';
 
@@ -209,8 +210,10 @@ export function subscribeEsp32Stream({
           const raw = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
           const payload = {
             ...raw,
-            receivedAt: Date.now()
+            receivedAt: Date.now(),
           };
+
+          const normalized = normalizeTelemetry(payload);
 
           // Kiểm tra và cảnh báo nếu có cảm biến bị offline
           const offlineSensors = (payload.sensors || []).filter(s => !s.online);
@@ -235,7 +238,15 @@ export function subscribeEsp32Stream({
             offlineCount: offlineSensors.length
           });
 
-          if (onData) onData(payload);
+          if (onData) {
+            onData({
+              ...normalized,
+              sensors: normalized.sensors.map((sensor) => ({
+                ...sensor,
+                temp: sensor.temperatureC,
+              })),
+            });
+          }
         } catch (err) {
           console.error(`${LOG_PREFIX} Parse error for temperatures:`, err);
         }

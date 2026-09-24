@@ -79,8 +79,15 @@ describe('esp32Service SSE Streaming', () => {
     instance.dispatchEvent('temperatures', { data: JSON.stringify(samplePayload) });
 
     expect(onData).toHaveBeenCalledWith(expect.objectContaining({
-      ...samplePayload,
-      receivedAt: expect.any(Number)
+      deltaAir: 7.5,
+      uptime: 45,
+      receivedAt: expect.any(Number),
+      valid: true,
+      sensors: [
+        expect.objectContaining({ id: 0, name: 'T1 Vào dàn', temp: -20.5, temperatureC: -20.5, online: true, status: 'ok' }),
+        expect.objectContaining({ id: 1, name: 'T2 Ra dàn', temp: -28.0, temperatureC: -28.0, online: true, status: 'ok' }),
+        expect.objectContaining({ id: 2, name: 'T3 Bầu TXV', temp: -18.2, temperatureC: -18.2, online: true, status: 'ok' }),
+      ],
     }));
     expect(onStatusChange).toHaveBeenCalledWith('connected', expect.any(Object));
     controller.unsubscribe();
