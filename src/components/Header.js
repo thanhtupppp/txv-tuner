@@ -31,6 +31,7 @@ export function Header({
   esp32Ip = '192.168.1.100',
   saveEsp32Ip,
   reconnect,
+  esp32Stats = null,
   flat,
   setFlat,
 }) {
@@ -151,6 +152,28 @@ export function Header({
                 onSubmitEditing={save}
               />
               {!!error && <Text accessibilityRole="alert" style={{ color: theme.danger, marginTop: 8 }}>{error}</Text>}
+              {esp32Stats && (
+                <View testID="esp32-stats-card" style={[styles.statsBox, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
+                  <Text style={[styles.statsTitle, { color: theme.ink }]}>📊 Trạng thái phần cứng ESP32</Text>
+                  <View style={styles.statsGrid}>
+                    <Text style={[styles.statsItem, { color: theme.inkMuted }]}>
+                      RAM: <Text style={{ color: esp32Stats.freeHeap < 10000 ? theme.danger : theme.optimal, fontWeight: '700' }}>
+                        {(esp32Stats.freeHeap / 1024).toFixed(1)} KB {esp32Stats.freeHeap < 10000 ? '⚠️' : '✅'}
+                      </Text>
+                    </Text>
+                    <Text style={[styles.statsItem, { color: theme.inkMuted }]}>
+                      Uptime: <Text style={{ color: theme.ink, fontWeight: '700' }}>
+                        {Math.floor((esp32Stats.uptime || 0) / 60)}m {(esp32Stats.uptime || 0) % 60}s
+                      </Text>
+                    </Text>
+                    {typeof esp32Stats.wifiRSSI === 'number' && (
+                      <Text style={[styles.statsItem, { color: theme.inkMuted }]}>
+                        RSSI: <Text style={{ color: theme.ink, fontWeight: '700' }}>{esp32Stats.wifiRSSI} dBm</Text>
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
               <View style={[styles.effectRow, { borderColor: theme.border }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.label, { color: theme.ink }]}>Giảm hiệu ứng vật liệu</Text>
@@ -207,4 +230,8 @@ const styles = StyleSheet.create({
   modalButton: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
   reconnectBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, minHeight: 28, marginLeft: 4 },
   reconnectBtnText: { fontSize: 11, fontWeight: '700' },
+  statsBox: { padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 12 },
+  statsTitle: { fontSize: 13, fontWeight: '800', marginBottom: 8 },
+  statsGrid: { gap: 4 },
+  statsItem: { fontSize: 12, fontWeight: '600' },
 });

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { startNetworkMonitoring } from './networkMonitor';
 
 const LOG_PREFIX = '[ESP32]';
 
@@ -33,7 +34,7 @@ export function buildStreamUrl(ip) {
 
 /**
  * Kết nối luồng Server-Sent Events (SSE) thời gian thực tới ESP32
- * Có hỗ trợ Heartbeat Watchdog, Exponential Backoff và giới hạn số lần Reconnect
+ * Có hỗ trợ Heartbeat Watchdog, Exponential Backoff, NetInfo và giới hạn số lần Reconnect
  *
  * @param {Object} options
  * @param {string} options.ip
@@ -46,6 +47,7 @@ export function buildStreamUrl(ip) {
  * @param {number} [options.maxAttempts=10]
  * @param {number} [options.heartbeatTimeoutMs=15000]
  * @param {any} [options.EventSourceImpl]
+ * @param {any} [options.networkOptions]
  * @returns {Function} Hàm unsubscribe có đính kèm method .reconnect()
  */
 export function subscribeEsp32Stream({
@@ -58,7 +60,8 @@ export function subscribeEsp32Stream({
   maxRetryDelay = 30000,
   maxAttempts = 10,
   heartbeatTimeoutMs = 15000,
-  EventSourceImpl = null
+  EventSourceImpl = null,
+  networkOptions = {}
 }) {
   const EventSourceClass = getEventSourceClass(EventSourceImpl);
   if (!EventSourceClass) {
@@ -74,9 +77,37 @@ export function subscribeEsp32Stream({
   let isClosed = false;
   let reconnectTimer = null;
   let watchdogTimer = null;
+  let networkUnsubscribe = null;
   let reconnectAttempts = 0;
+  let isNetworkOnline = true;
 
   const url = buildStreamUrl(ip);
+
+  // Theo dõi trạng thái kết nối mạng qua NetInfo / Web
+  networkUnsubscribe = startNetworkMonitoring((netState) => {
+    isNetworkOnline = netState.isConnected;
+    if (!netState.isConnected) {
+      console.log(`${LOG_PREFIX} [NetInfo] Disconnected from WiFi / Network`);
+      clearTimeout(reconnectTimer);
+      clearTimeout(watchdogTimer);
+      if (es && typeof es.close === 'function') {
+        try { es.close(); } catch (e) {}
+        es = null;
+      }
+      onStatusChange('offline', {
+        connected: false,
+        reconnecting: false,
+        reason: 'network_disconnected',
+        error: 'Chưa kết nối Wi-Fi ESP32'
+      });
+    } else {
+      console.log(`${LOG_PREFIX} [NetInfo] Network restored, attempting auto-reconnect...`);
+      if (!isClosed && !es) {
+        reconnectAttempts = 0;
+        connect();
+      }
+    }
+  }, networkOptions);
 
   // Watchdog: Tự động phát hiện ESP32 bị treo/đứng luồng
   const resetWatchdog = () => {
@@ -140,7 +171,7 @@ export function subscribeEsp32Stream({
   };
 
   const connect = () => {
-    if (isClosed) return;
+    if (isClosed || !isNetworkOnline) return;
 
     console.log(`${LOG_PREFIX} Connecting to SSE stream at ${url}...`);
     onStatusChange('connecting', {
@@ -168,6 +199,15 @@ export function subscribeEsp32Stream({
             receivedAt: Date.now()
           };
 
+          // Kiểm tra và cảnh báo nếu có cảm biến bị offline
+          const offlineSensors = (payload.sensors || []).filter(s => !s.online);
+          if (offlineSensors.length > 0) {
+            console.warn(
+              `${LOG_PREFIX} Offline sensors:`,
+              offlineSensors.map(s => s.name || `T${s.id + 1}`).join(', ')
+            );
+          }
+
           if (reconnectAttempts > 0) {
             console.log(`${LOG_PREFIX} Reconnected successfully!`);
           }
@@ -177,7 +217,8 @@ export function subscribeEsp32Stream({
             connected: true,
             reconnecting: false,
             attempt: 0,
-            serverTimestamp: payload.serverTimestamp
+            serverTimestamp: payload.serverTimestamp,
+            offlineCount: offlineSensors.length
           });
 
           if (onData) onData(payload);
@@ -196,6 +237,10 @@ export function subscribeEsp32Stream({
             ...raw,
             receivedAt: Date.now()
           };
+
+          if (typeof hbPayload.freeHeap === 'number' && hbPayload.freeHeap < 10000) {
+            console.warn(`${LOG_PREFIX} Low heap warning: ${hbPayload.freeHeap} bytes`);
+          }
 
           reconnectAttempts = 0;
           onStatusChange('connected', {
@@ -241,6 +286,12 @@ export function subscribeEsp32Stream({
 
   const unsubscribe = () => {
     isClosed = true;
+    if (typeof networkUnsubscribe === 'function') {
+      try {
+        networkUnsubscribe();
+      } catch (e) {}
+      networkUnsubscribe = null;
+    }
     clearTimeout(reconnectTimer);
     clearTimeout(watchdogTimer);
     if (es && typeof es.close === 'function') {

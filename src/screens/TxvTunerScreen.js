@@ -11,7 +11,7 @@ import { useTxvCalculator } from '../hooks/useTxvCalculator';
 import { calculateTxvRecommendation } from '../utils/txvRecommendation';
 import { useMaterial } from '../components/SkeuoKit';
 
-export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, themeMode }) {
+export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, themeMode, offlineSensors = [] }) {
   const { theme } = useMaterial();
 
   const {
@@ -82,6 +82,7 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
         isAutoSyncSensors={isAutoSyncSensors}
         setIsAutoSyncSensors={setIsAutoSyncSensors}
         themeMode={themeMode}
+        offlineSensors={offlineSensors}
       />
 
       {/* 2. Chọn Môi chất lạnh CoolProp */}

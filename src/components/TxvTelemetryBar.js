@@ -12,6 +12,7 @@ export function TxvTelemetryBar({
   isOnline = false,
   isDemoMode = false,
   themeMode = 'light',
+  offlineSensors = [],
 }) {
   const { theme } = useMaterial();
   const active = isDemoMode || isOnline;
@@ -44,6 +45,14 @@ export function TxvTelemetryBar({
           <SkeuoSwitch testID="sync-switch" accessibilityLabel="Tự đồng bộ cảm biến" value={isAutoSyncSensors} onValueChange={setIsAutoSyncSensors} />
         </View>
       </View>
+
+      {offlineSensors.length > 0 && isOnline && (
+        <View testID="offline-warning-banner" style={[styles.warningBanner, { backgroundColor: theme.surfaceInset, borderColor: theme.danger }]}>
+          <Text style={[styles.warningBannerText, { color: theme.danger }]}>
+            ⚠️ CẢNH BÁO: Mất tín hiệu {offlineSensors.map(s => s.name || `T${s.id + 1}`).join(', ')}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.readings}>
         {readings.map(reading => (
@@ -156,6 +165,18 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 1,
+  },
+  warningBanner: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  warningBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 

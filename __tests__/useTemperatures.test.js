@@ -83,5 +83,25 @@ describe('useTemperatures hook with SSE streaming', () => {
       result.current.reconnect();
     });
     expect(mockController.reconnect).toHaveBeenCalled();
+
+    // Check esp32Stats merged from heartbeat
+    expect(result.current.esp32Stats?.freeHeap).toBe(190000);
+    expect(result.current.esp32Stats?.uptime).toBe(105);
+
+    // Simulate 1 offline sensor
+    await act(async () => {
+      capturedOnData({
+        sensors: [
+          { id: 0, name: 'T1 Vào dàn', temp: -15.5, online: true },
+          { id: 1, name: 'T2 Ra dàn', temp: null, online: false },
+          { id: 2, name: 'T3 Bầu TXV', temp: -12.1, online: true }
+        ],
+        deltaAir: null,
+        uptime: 110
+      });
+    });
+
+    expect(result.current.offlineSensors).toHaveLength(1);
+    expect(result.current.offlineSensors[0].name).toBe('T2 Ra dàn');
   });
 });

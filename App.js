@@ -14,7 +14,7 @@ export default function App() {
   const [flat, setFlat] = useState(false);
   const [activeTab, setActiveTab] = useState('txv');
   const theme = THEME[themeMode];
-  const { data, history, connectionStatus, isDemoMode, toggleDemoMode, esp32Ip, saveEsp32Ip, reconnect } = useTemperatures();
+  const { data, history, connectionStatus, isDemoMode, toggleDemoMode, esp32Ip, saveEsp32Ip, reconnect, esp32Stats, offlineSensors } = useTemperatures();
   const sensors = data?.sensors || [];
   return (
     <SafeAreaProvider>
@@ -24,11 +24,11 @@ export default function App() {
           <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.surface} />
           <Header connectionStatus={connectionStatus} isDemoMode={isDemoMode} toggleDemoMode={toggleDemoMode}
             themeMode={themeMode} toggleTheme={() => setThemeMode(prev => prev === 'light' ? 'dark' : 'light')}
-            esp32Ip={esp32Ip} saveEsp32Ip={saveEsp32Ip} reconnect={reconnect} flat={flat} setFlat={setFlat} />
+            esp32Ip={esp32Ip} saveEsp32Ip={saveEsp32Ip} reconnect={reconnect} esp32Stats={esp32Stats} flat={flat} setFlat={setFlat} />
           <View style={[styles.mainBody, { backgroundColor: theme.bg }]}>
             <View style={[styles.mainBody, activeTab !== 'txv' && styles.hidden]} accessibilityElementsHidden={activeTab !== 'txv'} importantForAccessibility={activeTab !== 'txv' ? 'no-hide-descendants' : 'auto'}>
               <TxvTunerScreen liveT1={sensors[0]?.temp ?? null} liveT2={sensors[1]?.temp ?? null} liveT3={sensors[2]?.temp ?? null}
-                isOnline={connectionStatus === 'connected'} isDemoMode={isDemoMode} themeMode={themeMode} />
+                isOnline={connectionStatus === 'connected'} isDemoMode={isDemoMode} themeMode={themeMode} offlineSensors={offlineSensors} />
             </View>
             {activeTab === 'monitor' && <MonitorScreen sensors={sensors} deltaAir={data?.deltaAir} history={history} themeMode={themeMode} />}
           </View>

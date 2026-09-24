@@ -194,4 +194,76 @@ describe('esp32Service SSE Streaming', () => {
 
     controller.unsubscribe();
   });
+
+  it('pauses streaming on network disconnect and resumes when network restored', () => {
+    let capturedNetworkCallback;
+    const mockNetInfo = {
+      addEventListener: jest.fn((cb) => {
+        capturedNetworkCallback = cb;
+        return jest.fn();
+      })
+    };
+
+    const onData = jest.fn();
+    const onStatusChange = jest.fn();
+
+    const controller = subscribeEsp32Stream({
+      ip: '192.168.4.1',
+      onData,
+      onStatusChange,
+      EventSourceImpl: MockEventSource,
+      networkOptions: { NetInfoImpl: mockNetInfo }
+    });
+
+    expect(MockEventSource.instances.length).toBe(1);
+
+    // Simulate WiFi disconnect
+    capturedNetworkCallback({ isConnected: false, type: 'none' });
+    expect(MockEventSource.instances[0].closed).toBe(true);
+    expect(onStatusChange).toHaveBeenCalledWith('offline', expect.objectContaining({
+      reason: 'network_disconnected'
+    }));
+
+    // Simulate WiFi reconnect
+    capturedNetworkCallback({ isConnected: true, type: 'wifi' });
+    expect(MockEventSource.instances.length).toBe(2);
+
+    controller.unsubscribe();
+  });
+
+  it('detects and warns when sensors are offline', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const onData = jest.fn();
+    const onStatusChange = jest.fn();
+
+    const controller = subscribeEsp32Stream({
+      ip: '192.168.4.1',
+      onData,
+      onStatusChange,
+      EventSourceImpl: MockEventSource
+    });
+
+    const instance = MockEventSource.instances[0];
+    instance.dispatchEvent('temperatures', {
+      data: JSON.stringify({
+        sensors: [
+          { id: 0, name: 'T1 Vào dàn', temp: -20.0, online: true },
+          { id: 1, name: 'T2 Ra dàn', temp: null, online: false },
+          { id: 2, name: 'T3 Bầu TXV', temp: -18.0, online: true }
+        ],
+        uptime: 60
+      })
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[ESP32] Offline sensors:'),
+      expect.stringContaining('T2 Ra dàn')
+    );
+    expect(onStatusChange).toHaveBeenCalledWith('connected', expect.objectContaining({
+      offlineCount: 1
+    }));
+
+    warnSpy.mockRestore();
+    controller.unsubscribe();
+  });
 });

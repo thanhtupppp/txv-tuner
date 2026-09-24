@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { subscribeEsp32Stream, fetchEsp32Temperatures } from '../services/esp32Service';
+import { subscribeEsp32Stream, fetchEsp32Temperatures, fetchEsp32Stats } from '../services/esp32Service';
 
 const STORAGE_KEY_IP = '@esp32_ip';
 
@@ -11,6 +11,7 @@ export function useTemperatures() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [heartbeatInfo, setHeartbeatInfo] = useState(null);
+  const [esp32Stats, setEsp32Stats] = useState(null);
   const controllerRef = useRef(null);
   
   const [data, setData] = useState({
@@ -150,6 +151,13 @@ export function useTemperatures() {
         if (!isMounted) return;
         setHeartbeatInfo(hb);
         setLastUpdate(hb.receivedAt || Date.now());
+        setEsp32Stats((prev) => ({
+          ...prev,
+          freeHeap: hb.freeHeap,
+          uptime: hb.uptime,
+          wifiRSSI: hb.wifiRSSI ?? prev?.wifiRSSI,
+          clientConnected: true
+        }));
       },
       onStatusChange: handleStatusChange
     });
@@ -170,6 +178,47 @@ export function useTemperatures() {
     };
   }, [isDemoMode, esp32Ip]);
 
+  // Định kỳ lấy thông số /api/stats của ESP32 mỗi 60s
+  useEffect(() => {
+    if (isDemoMode) {
+      setEsp32Stats({
+        freeHeap: 198400,
+        uptime: data.uptime || 120,
+        wifiRSSI: -45,
+        clientConnected: true
+      });
+      return;
+    }
+
+    if (connectionStatus !== 'connected') {
+      return;
+    }
+
+    let isMounted = true;
+    const loadStats = async () => {
+      try {
+        const stats = await fetchEsp32Stats(esp32Ip, 2000);
+        if (isMounted && stats) {
+          setEsp32Stats((prev) => ({
+            ...prev,
+            ...stats
+          }));
+        }
+      } catch (err) {}
+    };
+
+    loadStats();
+    const interval = setInterval(loadStats, 60000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isDemoMode, connectionStatus, esp32Ip]);
+
+  const offlineSensors = useMemo(() => {
+    return (data?.sensors || []).filter((s) => !s.online);
+  }, [data?.sensors]);
+
   return {
     data,
     history,
@@ -177,6 +226,8 @@ export function useTemperatures() {
     lastUpdate,
     reconnectAttempt,
     heartbeatInfo,
+    esp32Stats,
+    offlineSensors,
     reconnect,
     isDemoMode,
     toggleDemoMode,
