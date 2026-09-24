@@ -30,6 +30,8 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
     tdValue,
     evapTemp,
     evapPressure,
+    evapPressureBarG,
+    evapPressureBarA,
     suctionTemp,
     setSuctionTemp,
     handleEvapTempChange,
@@ -47,7 +49,13 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
   const recommendation = calculateTxvRecommendation(actualSh, targetSh, currentValve, interlock);
 
   useEffect(() => {
-    if (typeof actualSh === 'number' && !isNaN(actualSh) && Number.isFinite(actualSh) && interlock?.allowed !== false) {
+    if (
+      typeof actualSh === 'number' &&
+      !isNaN(actualSh) &&
+      Number.isFinite(actualSh) &&
+      interlock?.allowed !== false &&
+      recommendation?.allowed !== false
+    ) {
       setShHistory((prev) => {
         const last = prev[prev.length - 1];
         if (last && Math.abs(last.actualSh - actualSh) < 0.05 && last.targetSh === targetSh) {
@@ -64,7 +72,7 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
         ];
       });
     }
-  }, [actualSh, targetSh, recommendation.direction, interlock?.allowed]);
+  }, [actualSh, targetSh, recommendation.direction, interlock?.allowed, recommendation?.allowed]);
 
   return (
     <ScrollView
@@ -109,6 +117,8 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
         opMode={opMode}
         evapTemp={evapTemp}
         evapPressure={evapPressure}
+        evapPressureBarG={evapPressureBarG}
+        evapPressureBarA={evapPressureBarA}
         suctionTemp={suctionTemp}
         setSuctionTemp={setSuctionTemp}
         targetSh={targetSh}

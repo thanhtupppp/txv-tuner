@@ -9,8 +9,11 @@ import { TXV_CONFIG } from '../constants/txvConfig';
 import {
   validateTxvInput,
   isValidTemperature,
+  parseTxvNumericInput,
   calculateSuperheat,
   calculateEvaporation,
+  barGaugeToAbsolute,
+  barAbsoluteToGauge,
 } from '../domain/txv';
 
 /**
@@ -29,9 +32,10 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
   const [tdValue, setTdValue] = useState(TXV_CONFIG.defaultTdK); // Chênh nhiệt dàn lạnh TD (K)
   const [targetSh, setTargetSh] = useState(TXV_CONFIG.defaultTargetShK); // Superheat mục tiêu (K)
 
-  // Thông số đo đạc & tính toán
+  // Thông số đo đạc & tính toán (Phân biệt rõ barG áp kế và barA tuyệt đối)
   const [evapTemp, setEvapTemp] = useState(TXV_CONFIG.defaultEvapTempC); // T_bay_hoi (°C)
-  const [evapPressure, setEvapPressure] = useState(TXV_CONFIG.defaultEvapPressureBar); // P_bay_hoi (bar)
+  const [evapPressureBarG, setEvapPressureBarG] = useState(TXV_CONFIG.defaultEvapPressureBarG ?? 1.21); // P_bay_hoi (bar g)
+  const [evapPressureBarA, setEvapPressureBarA] = useState(TXV_CONFIG.defaultEvapPressureBarA ?? 2.22); // P_bay_hoi (bar a)
   const [suctionTemp, setSuctionTemp] = useState(TXV_CONFIG.defaultSuctionTempC); // T_hoi_hut (°C)
 
   // Memoized objects van và môi chất
@@ -53,35 +57,43 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
       t1C: liveT1,
       t2C: liveT2,
       tdK: tdValue,
-      pressureBarA: evapPressure,
+      pressureBarG: evapPressureBarG,
       refrigerantId: selectedRefId,
     });
 
     if (result.valid) {
       setEvapTemp(result.evapTempC);
       if (result.evapPressureBarA !== null) {
-        setEvapPressure(result.evapPressureBarA);
+        setEvapPressureBarA(result.evapPressureBarA);
+      }
+      if (result.evapPressureBarG !== null) {
+        setEvapPressureBarG(result.evapPressureBarG);
       }
     } else {
       setEvapTemp(null);
     }
-  }, [liveT1, liveT2, tdValue, selectedRefId, evapPressure]);
+  }, [liveT1, liveT2, tdValue, selectedRefId, evapPressureBarG]);
 
   // Cài đặt theo nhiệt độ kho mong muốn
   const applyRoomTempTarget = useCallback((roomT, td = tdValue) => {
-    const rT = parseFloat(roomT) || 0;
-    const clampedRoomT = Math.max(TXV_CONFIG.temperatureMinC, Math.min(TXV_CONFIG.temperatureMaxC, rT));
-    const calculatedEvapT = Number((clampedRoomT - td).toFixed(1));
+    const parsedRoomT = parseTxvNumericInput(roomT, {
+      min: TXV_CONFIG.temperatureMinC,
+      max: TXV_CONFIG.temperatureMaxC,
+    });
+    if (parsedRoomT === null) return;
 
-    setTargetRoomTemp(clampedRoomT);
+    const calculatedEvapT = Number((parsedRoomT - td).toFixed(1));
+    setTargetRoomTemp(parsedRoomT);
     setTdValue(td);
     setEvapTemp(calculatedEvapT);
 
     try {
-      const pBar = tempToPressure(calculatedEvapT, selectedRefId);
-      setEvapPressure(pBar);
+      const pBarA = tempToPressure(calculatedEvapT, selectedRefId);
+      setEvapPressureBarA(pBarA);
+      setEvapPressureBarG(barAbsoluteToGauge(pBarA));
     } catch (error) {
-      setEvapPressure(0);
+      setEvapPressureBarA(null);
+      setEvapPressureBarG(null);
     }
 
     if (isAutoSyncSensors) {
@@ -101,14 +113,15 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
         t1C: liveT1,
         t2C: liveT2,
         tdK: tdValue,
-        pressureBarA: evapPressure,
+        pressureBarG: evapPressureBarG,
         refrigerantId: selectedRefId,
       });
 
       if (evapResult.valid) {
         setEvapTemp(evapResult.evapTempC);
         if (evapSource !== 'pressure' && evapResult.evapPressureBarA !== null) {
-          setEvapPressure(evapResult.evapPressureBarA);
+          setEvapPressureBarA(evapResult.evapPressureBarA);
+          setEvapPressureBarG(evapResult.evapPressureBarG);
         }
       } else {
         setEvapTemp(null);
@@ -121,9 +134,12 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
       setEvapTemp(calculatedEvapT);
 
       try {
-        setEvapPressure(tempToPressure(calculatedEvapT, selectedRefId));
+        const pBarA = tempToPressure(calculatedEvapT, selectedRefId);
+        setEvapPressureBarA(pBarA);
+        setEvapPressureBarG(barAbsoluteToGauge(pBarA));
       } catch (error) {
-        setEvapPressure(0);
+        setEvapPressureBarA(null);
+        setEvapPressureBarG(null);
       }
 
       if (isAutoSyncSensors) {
@@ -140,34 +156,77 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
     liveT2,
     liveT3,
     isAutoSyncSensors,
-    evapPressure,
+    evapPressureBarG,
   ]);
 
-  // Xử lý thay đổi nhiệt độ bay hơi bằng tay
+  // Xử lý thay đổi nhiệt độ bay hơi bằng tay (Harden: parseTxvNumericInput, không fallback về 0)
   const handleEvapTempChange = useCallback((val) => {
-    const num = parseFloat(val) || 0;
-    const clampedTemp = Math.max(TXV_CONFIG.temperatureMinC, Math.min(TXV_CONFIG.temperatureMaxC, num));
-    setEvapTemp(clampedTemp);
+    const parsedTemp = parseTxvNumericInput(val, {
+      min: TXV_CONFIG.temperatureMinC ?? -100,
+      max: TXV_CONFIG.temperatureMaxC ?? 100,
+    });
+    setEvapTemp(parsedTemp);
 
-    try {
-      setEvapPressure(tempToPressure(clampedTemp, selectedRefId));
-    } catch (error) {
-      setEvapPressure(0);
+    if (parsedTemp !== null) {
+      try {
+        const pBarA = tempToPressure(parsedTemp, selectedRefId);
+        setEvapPressureBarA(pBarA);
+        setEvapPressureBarG(barAbsoluteToGauge(pBarA));
+      } catch (error) {
+        setEvapPressureBarA(null);
+        setEvapPressureBarG(null);
+      }
+    } else {
+      setEvapPressureBarA(null);
+      setEvapPressureBarG(null);
     }
   }, [selectedRefId]);
 
-  // Xử lý thay đổi áp suất bay hơi bằng tay
-  const handleEvapPressureChange = useCallback((val) => {
-    const num = parseFloat(val) || 0;
-    const clampedPressure = Math.max(TXV_CONFIG.pressureMinBar, Math.min(TXV_CONFIG.pressureMaxBar, num));
-    setEvapPressure(clampedPressure);
+  // Xử lý thay đổi áp suất bay hơi áp kế barG bằng tay (Harden: barG -> barA qua barGaugeToAbsolute)
+  const handleEvapPressureBarGChange = useCallback((val) => {
+    const parsedG = parseTxvNumericInput(val, {
+      min: -1.0,
+      max: TXV_CONFIG.pressureMaxBar ?? 200,
+    });
+    setEvapPressureBarG(parsedG);
 
-    try {
-      setEvapTemp(pressureToTemp(clampedPressure, selectedRefId));
-    } catch (error) {
-      setEvapTemp(0);
+    if (parsedG !== null) {
+      const pBarA = barGaugeToAbsolute(parsedG);
+      setEvapPressureBarA(pBarA);
+      if (pBarA !== null && pBarA > 0) {
+        try {
+          const tEvap = pressureToTemp(pBarA, selectedRefId);
+          setEvapTemp(tEvap);
+        } catch (error) {
+          setEvapTemp(null);
+        }
+      } else {
+        setEvapTemp(null);
+      }
+    } else {
+      setEvapPressureBarA(null);
+      setEvapTemp(null);
     }
   }, [selectedRefId]);
+
+  // Xử lý thay đổi nhiệt độ hơi hút bằng tay (Harden: parseTxvNumericInput, không fallback về 0)
+  const handleSuctionTempChange = useCallback((val) => {
+    setIsAutoSyncSensors(false);
+    const parsedTemp = parseTxvNumericInput(val, {
+      min: TXV_CONFIG.temperatureMinC ?? -100,
+      max: TXV_CONFIG.temperatureMaxC ?? 100,
+    });
+    setSuctionTemp(parsedTemp);
+  }, []);
+
+  // Xử lý thay đổi Target SH bằng tay
+  const handleTargetShChange = useCallback((val) => {
+    const parsedSh = parseTxvNumericInput(val, {
+      min: 0.1,
+      max: 30.0,
+    });
+    setTargetSh(parsedSh);
+  }, []);
 
   // Tính Superheat thông qua pure module calculateSuperheat
   const shCalculation = useMemo(() => {
@@ -196,7 +255,9 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
       isAutoSyncSensors,
       suctionTemp,
       evapTemp,
-      evapPressure,
+      evapPressure: evapPressureBarA,
+      evapPressureBarA,
+      evapPressureBarG,
       valve: currentValve,
     });
   }, [
@@ -209,7 +270,8 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
     isAutoSyncSensors,
     suctionTemp,
     evapTemp,
-    evapPressure,
+    evapPressureBarA,
+    evapPressureBarG,
     currentValve,
   ]);
 
@@ -226,15 +288,20 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
     setEvapSource: handleSetEvapSource,
     targetRoomTemp,
     targetSh,
-    setTargetSh,
+    setTargetSh: handleTargetShChange,
     tdValue,
     applyRoomTempTarget,
     evapTemp,
-    evapPressure,
+    evapPressure: evapPressureBarG, // compatibility alias (barg)
+    evapPressureBarG,
+    evapPressureBarA,
     suctionTemp,
-    setSuctionTemp,
+    setSuctionTemp: handleSuctionTempChange,
     handleEvapTempChange,
-    handleEvapPressureChange,
+    handleEvapPressureChange: handleEvapPressureBarGChange,
+    handleEvapPressureBarGChange,
+    handleSuctionTempChange,
+    handleTargetShChange,
     currentRef,
     currentValve,
     actualSh,

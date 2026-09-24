@@ -12,7 +12,9 @@ export const TXV_CONFIG = Object.freeze({
   defaultTdK: 7.0,                  // Độ chênh nhiệt dàn lạnh tiêu chuẩn TD = T_room - T_evap (7K)
   defaultTargetShK: 6.0,            // Độ quá nhiệt chuẩn khuyến nghị Danfoss (dải 4 - 8K)
   defaultEvapTempC: -27.0,          // Nhiệt độ bay hơi tiêu chuẩn (-20 - 7 = -27°C)
-  defaultEvapPressureBar: 2.22,     // Áp suất bay hơi bão hòa tương ứng của R404A ở -27°C
+  defaultEvapPressureBarA: 2.22,    // Áp suất bay hơi tuyệt đối (bar a) của R404A ở -27°C
+  defaultEvapPressureBarG: 1.21,    // Áp suất bay hơi áp kế (bar g) của R404A ở -27°C (2.22 - 1.01325)
+  defaultEvapPressureBar: 1.21,     // Mặc định áp kế cho kỹ thuật viên
   defaultSuctionTempC: -21.0,       // Nhiệt độ hơi hút tiêu chuẩn: SH = -21 - (-27) = 6K
   liveFallbackT1C: -18.0,           // Giá trị dự phòng khi mất tín hiệu cảm biến T1 (vào dàn)
   liveFallbackT3C: -12.0,           // Giá trị dự phòng khi mất tín hiệu cảm biến T3 (bầu TXV)

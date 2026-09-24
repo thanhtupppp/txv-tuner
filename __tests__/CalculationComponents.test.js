@@ -67,7 +67,7 @@ describe('Phase 3: Calculation & Business Logic Layer Tests', () => {
       );
 
       const tempInput = getByLabelText('Nhiệt độ bay hơi, độ C');
-      const pressureInput = getByLabelText('Áp suất bay hơi, bar');
+      const pressureInput = getByLabelText('Áp suất bay hơi, bar g');
 
       expect(tempInput.props.value).toBe('-27');
       expect(pressureInput.props.value).toBe('2.29');

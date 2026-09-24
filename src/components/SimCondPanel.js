@@ -34,6 +34,18 @@ export function SimCondPanel({ condTemp, setCondTemp, currentRef, themeMode }) {
         </Text>
       </View>
 
+      <View style={[styles.warningBox, { backgroundColor: theme.surfaceInset }]}>
+        <Text style={styles.warningIcon}>⚠️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.warningTitle, { color: theme.warning || '#f59e0b' }]}>
+            Mô phỏng ngưng tụ — chưa phải phép đo thực tế.
+          </Text>
+          <Text style={[styles.warningDesc, { color: theme.inkMuted }]}>
+            Cần cảm biến đường lỏng T_liquid và cảm biến áp suất cao P_cond.
+          </Text>
+        </View>
+      </View>
+
       <Text style={[styles.subText, { color: theme.inkMuted }]}>
         💡 T_cond độc lập với cảm biến dàn lạnh. Chuẩn giải nhiệt gió mùa hè: 35°C - 45°C.
       </Text>
@@ -162,5 +174,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     fontFamily: MONO,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  warningIcon: {
+    fontSize: 16,
+  },
+  warningTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
+  warningDesc: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
   },
 });

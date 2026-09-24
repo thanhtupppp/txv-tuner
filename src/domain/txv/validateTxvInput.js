@@ -24,6 +24,35 @@ export function isValidTemperature(val) {
 }
 
 /**
+ * Chuyển đổi chuỗi nhập liệu sang số thực an toàn.
+ * Chuỗi rỗng '', chỉ có khoảng trắng, hoặc chữ 'abc' chuyển thành null.
+ * Chuỗi '0' hoặc số 0 được coi là hợp lệ (không bị coi là falsy).
+ *
+ * @param {string|number|null|undefined} val
+ * @param {{ min?: number, max?: number }} [range]
+ * @returns {number|null}
+ */
+export function parseTxvNumericInput(val, { min = -100, max = 200 } = {}) {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val) || isNaN(val)) return null;
+    return Math.max(min, Math.min(max, val));
+  }
+  if (typeof val !== 'string') return null;
+
+  const trimmed = val.trim();
+  if (trimmed === '') return null;
+
+  // Hỗ trợ trường hợp đang gõ dấu âm hoặc dấu chấm chưa xong
+  if (trimmed === '-' || trimmed === '.' || trimmed === '-.' || trimmed === '+') return null;
+
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || isNaN(num)) return null;
+
+  return Math.max(min, Math.min(max, Number(num.toFixed(2))));
+}
+
+/**
  * Đánh giá tính hợp lệ của cảm biến và thông số đầu vào cho quyết định điều chỉnh TXV
  *
  * @param {Object} params
@@ -37,6 +66,8 @@ export function isValidTemperature(val) {
  * @param {number|null} [params.suctionTemp] - Nhiệt độ hơi hút (°C)
  * @param {number|null} [params.evapTemp] - Nhiệt độ bay hơi (°C)
  * @param {number|null} [params.evapPressure] - Áp suất bay hơi (bar)
+ * @param {number|null} [params.evapPressureBarA] - Áp suất bay hơi tuyệt đối (bar a)
+ * @param {number|null} [params.evapPressureBarG] - Áp suất bay hơi áp kế (bar g)
  * @param {Object} [params.valve] - Cấu hình van Danfoss
  * @returns {{ allowed: boolean, status: string, statusText: string, reason: string, message: string|null }}
  */
@@ -51,6 +82,8 @@ export function validateTxvInput({
   suctionTemp,
   evapTemp,
   evapPressure,
+  evapPressureBarA,
+  evapPressureBarG,
   valve,
 } = {}) {
   // 1. Kiểm tra van Danfoss
@@ -109,7 +142,14 @@ export function validateTxvInput({
         };
       }
     } else if (evapSource === 'pressure') {
-      if (typeof evapPressure !== 'number' || !Number.isFinite(evapPressure) || evapPressure <= 0) {
+      let p = evapPressureBarA;
+      if (p === undefined && evapPressureBarG !== undefined && typeof evapPressureBarG === 'number') {
+        p = evapPressureBarG >= -1.0 ? evapPressureBarG + 1.01325 : null;
+      }
+      if (p === undefined) {
+        p = evapPressure;
+      }
+      if (typeof p !== 'number' || !Number.isFinite(p) || p <= 0) {
         return {
           allowed: false,
           status: 'invalid_input',
