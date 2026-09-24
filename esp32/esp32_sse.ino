@@ -4,8 +4,14 @@
 #include <DallasTemperature.h>
 #include <ArduinoJson.h>
 
+// Cấu hình WiFi Access Point (AP) - Khi điện thoại kết nối trực tiếp vào ESP32
 const char* AP_SSID = "TuSmart-TXV-Tuner";
 const char* AP_PASS = "12345678";
+
+// Cấu hình WiFi Station (STA) - Khi muốn ESP32 kết nối chung vào mạng WiFi nhà/Wokwi
+// Điền tên WiFi (ví dụ "Wokwi-GUEST" cho mô phỏng Wokwi) hoặc để trống "" nếu chỉ dùng AP
+const char* STA_SSID = "";
+const char* STA_PASS = "";
 
 #define ONE_WIRE_BUS 4
 OneWire oneWire(ONE_WIRE_BUS);
@@ -36,9 +42,32 @@ void setup() {
     sensors.getAddress(sensorAddrs[i], i);
   }
   
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID, AP_PASS);
-  Serial.print("AP started. IP: ");
-  Serial.println(WiFi.softAPIP());
+  Serial.println("\n==================================");
+  Serial.print("ESP32 AP started: ");
+  Serial.println(AP_SSID);
+  Serial.print("ESP32 AP IP: ");
+  Serial.println(WiFi.softAPIP()); // Mặc định: 192.168.4.1
+
+  if (strlen(STA_SSID) > 0) {
+    Serial.print("Connecting to STA WiFi: ");
+    Serial.println(STA_SSID);
+    WiFi.begin(STA_SSID, STA_PASS);
+    unsigned long startAttempt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 8000) {
+      delay(300);
+      Serial.print(".");
+    }
+    Serial.println();
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.print("Connected to STA WiFi! Local IP: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println("STA connection timeout. Running on AP only.");
+    }
+  }
+  Serial.println("==================================\n");
   
   // Endpoint SSE Streaming
   server.on("/api/stream", HTTP_GET, handleSSE);
@@ -53,9 +82,9 @@ void setup() {
     doc["uptime"] = millis() / 1000;
     doc["clientConnected"] = (sseClient && sseClient.connected());
     doc["wifiRSSI"] = WiFi.RSSI();
-    doc["wifiSSID"] = AP_SSID;
-    doc["wifiIP"] = WiFi.softAPIP().toString();
-    doc["wifiGateway"] = WiFi.softAPIP().toString();
+    doc["wifiSSID"] = (WiFi.status() == WL_CONNECTED) ? STA_SSID : AP_SSID;
+    doc["wifiIP"] = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
+    doc["wifiGateway"] = (WiFi.status() == WL_CONNECTED) ? WiFi.gatewayIP().toString() : WiFi.softAPIP().toString();
     doc["sensorCount"] = sensorCount;
     
     String json;

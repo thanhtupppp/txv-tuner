@@ -29,7 +29,7 @@ export function Header({
   toggleDemoMode,
   themeMode,
   toggleTheme,
-  esp32Ip = '192.168.1.100',
+  esp32Ip = '192.168.4.1',
   saveEsp32Ip,
   reconnect,
   esp32Stats = null,
@@ -68,7 +68,7 @@ export function Header({
       return;
     }
     if (!isValidHostOrIp(target)) {
-      setError('Địa chỉ không hợp lệ (ví dụ: 192.168.1.100, esp32.local hoặc URL Wokwi).');
+      setError('Địa chỉ không hợp lệ (ví dụ: 192.168.4.1, esp32.local hoặc URL Wokwi).');
       return;
     }
     setSaving(true);
@@ -157,7 +157,7 @@ export function Header({
                 style={[styles.input, { backgroundColor: theme.surfaceInset, color: theme.ink }]}
                 value={tempIp}
                 onChangeText={(value) => { setTempIp(value); setError(''); }}
-                placeholder="192.168.1.100"
+                placeholder="192.168.4.1"
                 placeholderTextColor={theme.inkMuted}
                 autoCapitalize="none"
                 autoCorrect={false}

@@ -5,7 +5,7 @@ import { subscribeEsp32Stream, fetchEsp32Temperatures, fetchEsp32Stats } from '.
 const STORAGE_KEY_IP = '@esp32_ip';
 
 export function useTemperatures() {
-  const [esp32Ip, setEsp32Ip] = useState('192.168.1.100');
+  const [esp32Ip, setEsp32Ip] = useState('192.168.4.1');
   const [isDemoMode, setIsDemoMode] = useState(true); // Mặc định Demo để người dùng trải nghiệm ngay
   const [connectionStatus, setConnectionStatus] = useState('demo'); // 'connected' | 'reconnecting' | 'offline' | 'demo'
   const [lastUpdate, setLastUpdate] = useState(null);
