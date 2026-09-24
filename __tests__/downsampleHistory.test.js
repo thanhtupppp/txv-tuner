@@ -126,4 +126,18 @@ describe('downsampleHistory - pure domain telemetry downsampling', () => {
     expect(result[0].timestamp).toBe(raw[0].timestamp);
     expect(result[result.length - 1].timestamp).toBe(raw[raw.length - 1].timestamp);
   });
+
+  it('strictly rejects points with missing timestamp unless allowSyntheticTime is true', () => {
+    const withoutTime = [
+      { actualSh: 6.0 }, // missing timestamp
+      { timestamp: 2000, actualSh: 6.5 },
+      { actualSh: 7.0 }, // missing timestamp
+    ];
+    const strictResult = downsampleHistory(withoutTime, 10);
+    expect(strictResult).toHaveLength(1);
+    expect(strictResult[0].timestamp).toBe(2000);
+
+    const syntheticResult = downsampleHistory(withoutTime, 10, { allowSyntheticTime: true });
+    expect(syntheticResult).toHaveLength(3);
+  });
 });

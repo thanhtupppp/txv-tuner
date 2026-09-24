@@ -14,11 +14,11 @@ export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode, 
   const dataPoints = useMemo(() => {
     if (!historyData || historyData.length === 0) {
       return [
-        { actualSh: 5.5, targetSh },
-        { actualSh: 6.2, targetSh },
-        { actualSh: 7.1, targetSh },
-        { actualSh: 6.8, targetSh },
-        { actualSh: 6.0, targetSh },
+        { actualSh: 5.5, targetSh, timestamp: 1000 },
+        { actualSh: 6.2, targetSh, timestamp: 2000 },
+        { actualSh: 7.1, targetSh, timestamp: 3000 },
+        { actualSh: 6.8, targetSh, timestamp: 4000 },
+        { actualSh: 6.0, targetSh, timestamp: 5000 },
       ];
     }
     return downsampleHistory(historyData, maxPoints, {

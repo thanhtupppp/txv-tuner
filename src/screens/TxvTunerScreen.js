@@ -11,6 +11,11 @@ import { useTxvCalculator } from '../hooks/useTxvCalculator';
 import { calculateTxvRecommendation } from '../utils/txvRecommendation';
 import { useMaterial } from '../components/SkeuoKit';
 
+/**
+ * Buffer kích thước tối đa cho biểu đồ độ quá nhiệt (Superheat History).
+ * Lưu 60 điểm tính toán (tương đương ~2 phút) để quan sát xu hướng điều chỉnh van TXV.
+ * Tách biệt với MAX_TELEMETRY_HISTORY (30 điểm cảm biến thô) trong useTemperatures.
+ */
 const MAX_REALTIME_POINTS = 60;
 
 export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, themeMode, offlineSensors = [] }) {

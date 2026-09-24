@@ -4,6 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { subscribeEsp32Stream, fetchEsp32Temperatures, fetchEsp32Stats } from '../services/esp32Service';
 
 const STORAGE_KEY_IP = '@esp32_ip';
+
+/**
+ * Buffer kích thước tối đa cho lịch sử cảm biến nhiệt độ thô (T1, T2, T3).
+ * Lưu 30 điểm đo (tương đương ~1 phút ở nhịp 2s/lần) phục vụ màn hình Giám sát (MonitorScreen).
+ * Tách biệt với MAX_REALTIME_POINTS (60 điểm) của độ quá nhiệt trên màn hình TXV Tuner.
+ */
 export const MAX_TELEMETRY_HISTORY = 30;
 
 function getInitialAppState() {
@@ -104,9 +110,9 @@ export function useTemperatures() {
     });
   }, []);
 
-  // Giả lập dữ liệu trong Demo Mode
+  // Giả lập dữ liệu trong Demo Mode (chỉ chạy khi app active)
   useEffect(() => {
-    if (!isDemoMode) return;
+    if (!isDemoMode || !isAppActive) return;
 
     const interval = setInterval(() => {
       setData((prev) => {
@@ -138,7 +144,7 @@ export function useTemperatures() {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isDemoMode]);
+  }, [isDemoMode, isAppActive]);
 
   const reconnect = useCallback(() => {
     if (controllerRef.current && typeof controllerRef.current.reconnect === 'function') {

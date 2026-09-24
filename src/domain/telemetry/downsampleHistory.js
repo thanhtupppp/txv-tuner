@@ -4,9 +4,11 @@
  */
 
 /**
- * Lọc và chuẩn hóa dữ liệu điểm thời gian
+ * Lọc và chuẩn hóa dữ liệu điểm thời gian.
+ * Mặc định yêu cầu timestamp hợp lệ (dữ liệu production); chỉ cho phép tạo timestamp giả lập
+ * khi allowSyntheticTime = true (dành riêng cho test fixture hoặc demo).
  */
-function sanitizePoints(points, valueKey, timeKey) {
+function sanitizePoints(points, valueKey, timeKey, allowSyntheticTime = false) {
   if (!Array.isArray(points)) return [];
 
   const valid = [];
@@ -15,7 +17,7 @@ function sanitizePoints(points, valueKey, timeKey) {
     if (!pt || typeof pt !== 'object') continue;
 
     let time = pt[timeKey] ?? pt.timestamp ?? pt.time;
-    if (time === undefined) {
+    if (time === undefined && allowSyntheticTime) {
       time = i + 1;
     }
 
@@ -202,9 +204,10 @@ export function downsampleHistory(rawPoints, maxPoints = 60, options = {}) {
     algorithm = 'minmax',
     valueKey = 'actualSh',
     timeKey = 'timestamp',
+    allowSyntheticTime = false,
   } = options;
 
-  const valid = sanitizePoints(rawPoints, valueKey, timeKey);
+  const valid = sanitizePoints(rawPoints, valueKey, timeKey, allowSyntheticTime);
   if (valid.length <= maxPoints) {
     return valid;
   }

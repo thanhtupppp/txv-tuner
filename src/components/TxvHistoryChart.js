@@ -13,11 +13,11 @@ export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode, m
   const dataPoints = useMemo(() => {
     if (!historyData || historyData.length === 0) {
       return [
-        { actualSh: 5.5 },
-        { actualSh: 6.2 },
-        { actualSh: 7.1 },
-        { actualSh: 8.5 },
-        { actualSh: 10.2 }
+        { actualSh: 5.5, timestamp: 1000 },
+        { actualSh: 6.2, timestamp: 2000 },
+        { actualSh: 7.1, timestamp: 3000 },
+        { actualSh: 8.5, timestamp: 4000 },
+        { actualSh: 10.2, timestamp: 5000 },
       ];
     }
     return downsampleHistory(historyData, maxPoints, {
