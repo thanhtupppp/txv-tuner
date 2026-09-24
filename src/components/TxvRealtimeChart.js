@@ -1,22 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
 import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell } from '../components/SkeuoKit';
+import { downsampleHistory } from '../domain/telemetry/downsampleHistory';
 
-export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode }) {
+export function TxvRealtimeChart({ historyData = [], targetSh = 6.0, themeMode, maxPoints = 60 }) {
   const { theme } = useMaterial();
   const [screenWidth, setScreenWidth] = useState(280);
   const chartHeight = 120;
 
-  // Chuẩn bị dữ liệu
-  const dataPoints = historyData.length > 0 ? historyData : [
-    { actualSh: 5.5, targetSh },
-    { actualSh: 6.2, targetSh },
-    { actualSh: 7.1, targetSh },
-    { actualSh: 6.8, targetSh },
-    { actualSh: 6.0, targetSh },
-  ];
+  // Chuẩn bị và nén dữ liệu nếu vượt quá maxPoints
+  const dataPoints = useMemo(() => {
+    if (!historyData || historyData.length === 0) {
+      return [
+        { actualSh: 5.5, targetSh },
+        { actualSh: 6.2, targetSh },
+        { actualSh: 7.1, targetSh },
+        { actualSh: 6.8, targetSh },
+        { actualSh: 6.0, targetSh },
+      ];
+    }
+    return downsampleHistory(historyData, maxPoints, {
+      algorithm: 'minmax',
+      valueKey: 'actualSh',
+      timeKey: 'timestamp',
+    });
+  }, [historyData, targetSh, maxPoints]);
 
   const readings = dataPoints.map(point => point.actualSh).filter(Number.isFinite);
   const minSh = Math.floor(Math.min(0, targetSh, ...readings) / 2) * 2;

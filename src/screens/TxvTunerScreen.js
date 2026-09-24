@@ -11,6 +11,8 @@ import { useTxvCalculator } from '../hooks/useTxvCalculator';
 import { calculateTxvRecommendation } from '../utils/txvRecommendation';
 import { useMaterial } from '../components/SkeuoKit';
 
+const MAX_REALTIME_POINTS = 60;
+
 export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, themeMode, offlineSensors = [] }) {
   const { theme } = useMaterial();
 
@@ -62,14 +64,14 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
           return prev;
         }
         return [
-          ...prev.slice(-19),
+          ...prev,
           {
             timestamp: Date.now(),
             actualSh,
             targetSh,
             action: recommendation.direction
           }
-        ];
+        ].slice(-MAX_REALTIME_POINTS);
       });
     }
   }, [actualSh, targetSh, recommendation.direction, interlock?.allowed, recommendation?.allowed]);

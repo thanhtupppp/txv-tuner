@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { subscribeEsp32Stream, fetchEsp32Temperatures, fetchEsp32Stats } from '../services/esp32Service';
 
 const STORAGE_KEY_IP = '@esp32_ip';
+export const MAX_TELEMETRY_HISTORY = 30;
+
+function getInitialAppState() {
+  if (typeof AppState?.currentState === 'string') {
+    return AppState.currentState;
+  }
+  return 'active';
+}
 
 export function useTemperatures() {
   const [esp32Ip, setEsp32Ip] = useState('192.168.4.1');
@@ -12,16 +21,34 @@ export function useTemperatures() {
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [heartbeatInfo, setHeartbeatInfo] = useState(null);
   const [esp32Stats, setEsp32Stats] = useState(null);
+  const [appState, setAppState] = useState(getInitialAppState);
   const controllerRef = useRef(null);
-  
+  const connectionStatusRef = useRef(connectionStatus);
+
+  const isAppActive = appState !== 'background' && appState !== 'inactive';
+
+  useEffect(() => {
+    connectionStatusRef.current = connectionStatus;
+  }, [connectionStatus]);
+
+  // Quản lý vòng đời ứng dụng qua AppState (active, background, inactive)
+  useEffect(() => {
+    const subscription = AppState.addEventListener?.('change', (nextState) => {
+      setAppState(nextState);
+    });
+    return () => {
+      subscription?.remove?.();
+    };
+  }, []);
+
   const [data, setData] = useState({
     sensors: [
       { id: 0, name: 'T1 Vào dàn', temp: -22.7, temperatureC: -22.7, online: true },
       { id: 1, name: 'T2 Ra dàn', temp: -30.1, temperatureC: -30.1, online: true },
-      { id: 2, name: 'T3 Bầu TXV', temp: -19.9, temperatureC: -19.9, online: true }
+      { id: 2, name: 'T3 Bầu TXV', temp: -19.9, temperatureC: -19.9, online: true },
     ],
     deltaAir: 7.4,
-    uptime: 1240
+    uptime: 1240,
   });
 
   const [history, setHistory] = useState([]);
@@ -29,25 +56,29 @@ export function useTemperatures() {
 
   // Tải IP và warnings log đã lưu
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY_IP).then((savedIp) => {
-      if (savedIp) setEsp32Ip(savedIp);
-    }).catch(() => {});
+    AsyncStorage.getItem(STORAGE_KEY_IP)
+      .then((savedIp) => {
+        if (savedIp) setEsp32Ip(savedIp);
+      })
+      .catch(() => {});
 
-    AsyncStorage.getItem('@esp32_warnings_log').then((raw) => {
-      if (raw) {
-        try {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) setWarningsLog(list);
-        } catch (e) {}
-      }
-    }).catch(() => {});
+    AsyncStorage.getItem('@esp32_warnings_log')
+      .then((raw) => {
+        if (raw) {
+          try {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) setWarningsLog(list);
+          } catch (e) {}
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const addWarning = useCallback((warn) => {
     const item = {
       id: Date.now() + Math.random(),
       timestamp: Date.now(),
-      ...warn
+      ...warn,
     };
     setWarningsLog((prev) => {
       const next = [item, ...prev].slice(0, 50);
@@ -79,7 +110,6 @@ export function useTemperatures() {
 
     const interval = setInterval(() => {
       setData((prev) => {
-        // Biến thiên ngẫu nhiên nhẹ ±0.15°C
         const s0 = prev.sensors[0].temperatureC ?? prev.sensors[0].temp;
         const s1 = prev.sensors[1].temperatureC ?? prev.sensors[1].temp;
         const s2 = prev.sensors[2].temperatureC ?? prev.sensors[2].temp;
@@ -92,15 +122,15 @@ export function useTemperatures() {
           sensors: [
             { id: 0, name: 'T1 Vào dàn', temp: t1, temperatureC: t1, online: true },
             { id: 1, name: 'T2 Ra dàn', temp: t2, temperatureC: t2, online: true },
-            { id: 2, name: 'T3 Bầu TXV', temp: t3, temperatureC: t3, online: true }
+            { id: 2, name: 'T3 Bầu TXV', temp: t3, temperatureC: t3, online: true },
           ],
           deltaAir,
-          uptime: (prev.uptime || 0) + 2
+          uptime: (prev.uptime || 0) + 2,
         };
 
         setHistory((h) => [
-          ...h.slice(-29),
-          { time: Date.now(), t1, t2, t3 }
+          ...h.slice(-(MAX_TELEMETRY_HISTORY - 1)),
+          { time: Date.now(), t1, t2, t3 },
         ]);
 
         return updated;
@@ -116,12 +146,70 @@ export function useTemperatures() {
     }
   }, []);
 
-  // Luồng dữ liệu thời gian thực từ ESP32 (ưu tiên SSE streaming, tự động polling fallback nếu rớt stream)
+  // Luồng dữ liệu thời gian thực từ ESP32:
+  // - Ưu tiên SSE streaming
+  // - Tự động pause khi app ở background hoặc inactive
+  // - Reconnect duy nhất khi app quay lại active
+  // - Polling dự phòng tuần tự không chồng chéo (Sequential Chained Polling)
+  // - Hủy request REST in-flight qua AbortController khi đổi IP hoặc unmount
   useEffect(() => {
     if (isDemoMode) return;
+    if (!isAppActive) {
+      return;
+    }
 
     let isMounted = true;
-    let fallbackPollInterval = null;
+    let pollTimer = null;
+    let isPolling = false;
+    let isPollStopped = false;
+    const abortController = new AbortController();
+
+    const stopPolling = () => {
+      isPollStopped = true;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    const schedulePoll = (delayMs) => {
+      if (isPollStopped || !isMounted || !isAppActive) return;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+      }
+      pollTimer = setTimeout(runPoll, delayMs);
+    };
+
+    const runPoll = async () => {
+      if (isPollStopped || !isMounted || !isAppActive || isPolling) return;
+      isPolling = true;
+
+      try {
+        const json = await fetchEsp32Temperatures(esp32Ip, 2500, {
+          signal: abortController.signal,
+        });
+        if (!isPollStopped && isMounted && json) {
+          handleStreamData(json);
+          setConnectionStatus('connected');
+          stopPolling();
+        }
+      } catch (e) {
+        if (!isPollStopped && isMounted && !abortController.signal.aborted) {
+          setConnectionStatus('offline');
+        }
+      } finally {
+        isPolling = false;
+        // Chỉ lập lịch request tiếp theo SAU KHI request trước đã settle hoàn toàn
+        if (
+          !isPollStopped &&
+          isMounted &&
+          isAppActive &&
+          connectionStatusRef.current === 'offline'
+        ) {
+          schedulePoll(3000);
+        }
+      }
+    };
 
     const handleStreamData = (payload) => {
       if (!isMounted || !payload) return;
@@ -135,8 +223,8 @@ export function useTemperatures() {
       const s2 = payload?.sensors?.[2]?.temperatureC ?? payload?.sensors?.[2]?.temp;
       if (typeof s0 === 'number' || typeof s1 === 'number' || typeof s2 === 'number') {
         setHistory((h) => [
-          ...h.slice(-29),
-          { time: Date.now(), t1: s0, t2: s1, t3: s2 }
+          ...h.slice(-(MAX_TELEMETRY_HISTORY - 1)),
+          { time: Date.now(), t1: s0, t2: s1, t3: s2 },
         ]);
       }
     };
@@ -150,23 +238,14 @@ export function useTemperatures() {
         setReconnectAttempt(0);
       }
 
-      // Nếu offline, kích hoạt polling dự phòng định kỳ
-      if (status === 'offline' && !fallbackPollInterval) {
-        fallbackPollInterval = setInterval(async () => {
-          if (!isMounted) return;
-          try {
-            const json = await fetchEsp32Temperatures(esp32Ip, 2500);
-            if (isMounted && json) {
-              handleStreamData(json);
-              setConnectionStatus('connected');
-            }
-          } catch (e) {
-            if (isMounted) setConnectionStatus('offline');
-          }
-        }, 3000);
-      } else if (status === 'connected' && fallbackPollInterval) {
-        clearInterval(fallbackPollInterval);
-        fallbackPollInterval = null;
+      // Kích hoạt chuỗi sequential polling khi SSE offline
+      if (status === 'offline') {
+        if (!pollTimer && !isPolling) {
+          isPollStopped = false;
+          schedulePoll(3000);
+        }
+      } else if (status === 'connected') {
+        stopPolling();
       }
     };
 
@@ -182,13 +261,13 @@ export function useTemperatures() {
           freeHeap: hb.freeHeap,
           uptime: hb.uptime,
           wifiRSSI: hb.wifiRSSI ?? prev?.wifiRSSI,
-          clientConnected: true
+          clientConnected: true,
         }));
         if (typeof hb.freeHeap === 'number' && hb.freeHeap < 10000) {
           addWarning({
             type: hb.freeHeap < 5000 ? 'heap_critical' : 'heap_low',
             message: `Free Heap thấp: ${(hb.freeHeap / 1024).toFixed(1)} KB`,
-            value: hb.freeHeap
+            value: hb.freeHeap,
           });
         }
       },
@@ -196,28 +275,29 @@ export function useTemperatures() {
         if (!isMounted) return;
         addWarning(w);
       },
-      onStatusChange: handleStatusChange
+      onStatusChange: handleStatusChange,
     });
 
     controllerRef.current = controller;
 
     return () => {
       isMounted = false;
+      stopPolling();
+      abortController.abort();
       controllerRef.current = null;
-      if (typeof controller === 'function') {
-        controller();
-      } else if (controller && typeof controller.unsubscribe === 'function') {
-        controller.unsubscribe();
-      }
-      if (fallbackPollInterval) {
-        clearInterval(fallbackPollInterval);
+      if (controller) {
+        if (typeof controller.unsubscribe === 'function') {
+          controller.unsubscribe();
+        } else if (typeof controller === 'function') {
+          controller();
+        }
       }
     };
-  }, [isDemoMode, esp32Ip]);
+  }, [isDemoMode, esp32Ip, appState]);
 
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Định kỳ lấy thông số /api/stats của ESP32 mỗi 60s
+  // Định kỳ lấy thông số /api/stats của ESP32 mỗi 60s (chỉ khi active)
   useEffect(() => {
     if (isDemoMode) {
       setEsp32Stats({
@@ -228,23 +308,25 @@ export function useTemperatures() {
         wifiSSID: 'TuSmart-TXV-Tuner',
         wifiIP: '192.168.4.1',
         wifiGateway: '192.168.4.1',
-        sensorCount: 3
+        sensorCount: 3,
       });
       return;
     }
 
-    if (connectionStatus !== 'connected') {
+    if (connectionStatus !== 'connected' || !isAppActive) {
       return;
     }
 
     let isMounted = true;
+    const abortCtrl = new AbortController();
+
     const loadStats = async () => {
       try {
-        const stats = await fetchEsp32Stats(esp32Ip, 2000);
+        const stats = await fetchEsp32Stats(esp32Ip, 2000, { signal: abortCtrl.signal });
         if (isMounted && stats) {
           setEsp32Stats((prev) => ({
             ...prev,
-            ...stats
+            ...stats,
           }));
         }
       } catch (err) {}
@@ -254,9 +336,10 @@ export function useTemperatures() {
     const interval = setInterval(loadStats, 60000);
     return () => {
       isMounted = false;
+      abortCtrl.abort();
       clearInterval(interval);
     };
-  }, [isDemoMode, connectionStatus, esp32Ip, data.uptime]);
+  }, [isDemoMode, connectionStatus, esp32Ip, appState, data.uptime]);
 
   const refreshStats = useCallback(async () => {
     if (isDemoMode) {
@@ -270,7 +353,7 @@ export function useTemperatures() {
         wifiIP: '192.168.4.1',
         wifiGateway: '192.168.4.1',
         sensorCount: 3,
-        ...prev
+        ...prev,
       }));
       setStatsLoading(false);
       return;
@@ -282,7 +365,7 @@ export function useTemperatures() {
       if (stats) {
         setEsp32Stats((prev) => ({
           ...prev,
-          ...stats
+          ...stats,
         }));
       }
       return stats;
@@ -311,6 +394,8 @@ export function useTemperatures() {
     isDemoMode,
     toggleDemoMode,
     esp32Ip,
-    saveEsp32Ip
+    saveEsp32Ip,
   };
 }
+
+export default useTemperatures;

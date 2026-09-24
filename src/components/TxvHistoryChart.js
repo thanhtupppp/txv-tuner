@@ -1,21 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
 import { MONO } from '../constants/theme';
 import { useMaterial, SkeuoPanel, SkeuoLcdWell } from '../components/SkeuoKit';
+import { downsampleHistory } from '../domain/telemetry/downsampleHistory';
 
-export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode }) {
+export function TxvHistoryChart({ historyData = [], targetSh = 6.0, themeMode, maxPoints = 60 }) {
   const { theme } = useMaterial();
   const [screenWidth, setScreenWidth] = useState(280);
   const chartHeight = 140;
 
-  const dataPoints = historyData.length > 0 ? historyData : [
-    { actualSh: 5.5 },
-    { actualSh: 6.2 },
-    { actualSh: 7.1 },
-    { actualSh: 8.5 },
-    { actualSh: 10.2 }
-  ];
+  const dataPoints = useMemo(() => {
+    if (!historyData || historyData.length === 0) {
+      return [
+        { actualSh: 5.5 },
+        { actualSh: 6.2 },
+        { actualSh: 7.1 },
+        { actualSh: 8.5 },
+        { actualSh: 10.2 }
+      ];
+    }
+    return downsampleHistory(historyData, maxPoints, {
+      algorithm: 'minmax',
+      valueKey: 'actualSh',
+      timeKey: 'timestamp',
+    });
+  }, [historyData, maxPoints]);
 
   const readings = dataPoints.map(point => point.actualSh).filter(Number.isFinite);
   const minSh = Math.floor(Math.min(0, targetSh, ...readings) / 4) * 4;
