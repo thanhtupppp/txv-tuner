@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import { startNetworkMonitoring } from './networkMonitor';
+import { requestEsp32 } from './esp32Request';
+import { normalizeEsp32Error } from './esp32Errors';
 
 const LOG_PREFIX = '[ESP32]';
 
@@ -356,21 +358,20 @@ export function subscribeEsp32Stream({
  * Fetch một lần qua HTTP REST (dự phòng cho Polling hoặc Health Check)
  */
 export async function fetchEsp32Temperatures(ip, timeoutMs = 3000) {
-  let host = String(ip).trim().replace(/^https?:\/\//i, '');
-  host = host.split('/')[0];
+  const host = String(ip).trim().replace(/^https?:\/\//i, '').split('/')[0];
   const url = `http://${host}/api/temperatures`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    clearTimeout(timer);
-    throw e;
+    const { data } = await requestEsp32(url, {
+      timeoutMs,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    return data;
+  } catch (error) {
+    throw normalizeEsp32Error(error);
   }
 }
 
@@ -378,20 +379,19 @@ export async function fetchEsp32Temperatures(ip, timeoutMs = 3000) {
  * Lấy thông số hệ thống của ESP32 (freeHeap, uptime, wifiRSSI, clientConnected)
  */
 export async function fetchEsp32Stats(ip, timeoutMs = 3000) {
-  let host = String(ip).trim().replace(/^https?:\/\//i, '');
-  host = host.split('/')[0];
+  const host = String(ip).trim().replace(/^https?:\/\//i, '').split('/')[0];
   const url = `http://${host}/api/stats`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    clearTimeout(timer);
-    throw e;
+    const { data } = await requestEsp32(url, {
+      timeoutMs,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    return data;
+  } catch (error) {
+    throw normalizeEsp32Error(error);
   }
 }
