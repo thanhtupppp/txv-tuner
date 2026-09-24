@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { subscribeEsp32Stream, fetchEsp32Temperatures } from '../services/esp32Service';
 
 const STORAGE_KEY_IP = '@esp32_ip';
 
@@ -78,39 +79,65 @@ export function useTemperatures() {
     return () => clearInterval(interval);
   }, [isDemoMode]);
 
-  // Polling từ ESP32 thực tế khi không bật Demo Mode
+  // Luồng dữ liệu thời gian thực từ ESP32 (ưu tiên SSE streaming, tự động polling fallback nếu rớt stream)
   useEffect(() => {
     if (isDemoMode) return;
 
     let isMounted = true;
-    const poll = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+    let fallbackPollInterval = null;
 
-        const url = esp32Ip.startsWith('http') ? esp32Ip : `http://${esp32Ip}/api/temperatures`;
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
+    const handleStreamData = (payload) => {
+      if (!isMounted || !payload) return;
+      setData(payload);
+      setConnectionStatus('connected');
 
-        if (res.ok) {
-          const json = await res.json();
-          if (isMounted) {
-            setData(json);
-            setConnectionStatus('connected');
-          }
-        } else {
-          if (isMounted) setConnectionStatus('offline');
-        }
-      } catch (err) {
-        if (isMounted) setConnectionStatus('offline');
+      const s0 = payload?.sensors?.[0]?.temp;
+      const s1 = payload?.sensors?.[1]?.temp;
+      const s2 = payload?.sensors?.[2]?.temp;
+      if (typeof s0 === 'number' || typeof s1 === 'number' || typeof s2 === 'number') {
+        setHistory((h) => [
+          ...h.slice(-29),
+          { time: Date.now(), t1: s0, t2: s1, t3: s2 }
+        ]);
       }
     };
 
-    poll();
-    const interval = setInterval(poll, 3000);
+    const handleStatusChange = (status) => {
+      if (!isMounted) return;
+      setConnectionStatus(status);
+
+      // Nếu offline, kích hoạt polling dự phòng định kỳ
+      if (status === 'offline' && !fallbackPollInterval) {
+        fallbackPollInterval = setInterval(async () => {
+          if (!isMounted) return;
+          try {
+            const json = await fetchEsp32Temperatures(esp32Ip, 2500);
+            if (isMounted && json) {
+              handleStreamData(json);
+              setConnectionStatus('connected');
+            }
+          } catch (e) {
+            if (isMounted) setConnectionStatus('offline');
+          }
+        }, 3000);
+      } else if (status === 'connected' && fallbackPollInterval) {
+        clearInterval(fallbackPollInterval);
+        fallbackPollInterval = null;
+      }
+    };
+
+    const unsubscribe = subscribeEsp32Stream({
+      ip: esp32Ip,
+      onData: handleStreamData,
+      onStatusChange: handleStatusChange
+    });
+
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      unsubscribe();
+      if (fallbackPollInterval) {
+        clearInterval(fallbackPollInterval);
+      }
     };
   }, [isDemoMode, esp32Ip]);
 
