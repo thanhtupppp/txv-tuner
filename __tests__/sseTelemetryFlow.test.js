@@ -252,6 +252,43 @@ describe('End-to-End SSE Telemetry Flow', () => {
       expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Low heap warning'));
       controller.unsubscribe();
     });
+
+    it('does not spam duplicate low heap warnings on consecutive low heap heartbeats', () => {
+      const onHeartbeat = jest.fn();
+      const controller = subscribeEsp32Stream({
+        ip: '192.168.4.1',
+        onHeartbeat,
+        EventSourceImpl: MockEventSource,
+      });
+
+      const es = MockEventSource.instances[0];
+
+      // First low heap heartbeat -> warns
+      es.dispatchEvent('heartbeat', {
+        data: JSON.stringify({ alive: true, freeHeap: 8500, uptime: 400 }),
+      });
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      // Second low heap heartbeat -> deduplicated, does not warn again
+      es.dispatchEvent('heartbeat', {
+        data: JSON.stringify({ alive: true, freeHeap: 8200, uptime: 410 }),
+      });
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      // Heap recovers -> resets flag
+      es.dispatchEvent('heartbeat', {
+        data: JSON.stringify({ alive: true, freeHeap: 20000, uptime: 420 }),
+      });
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      // Heap drops again -> warns once more
+      es.dispatchEvent('heartbeat', {
+        data: JSON.stringify({ alive: true, freeHeap: 7500, uptime: 430 }),
+      });
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+
+      controller.unsubscribe();
+    });
   });
 
   describe('3. Warning Event Handling', () => {

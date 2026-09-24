@@ -86,6 +86,7 @@ export function subscribeEsp32Stream({
   let isNetworkOnline = true;
   let wasConnectedBefore = false;
   let latestNetState = { isConnected: true, hasInternet: true };
+  let hasWarnedLowHeap = false;
 
   const url = buildStreamUrl(ip);
 
@@ -263,8 +264,15 @@ export function subscribeEsp32Stream({
             receivedAt: Date.now()
           };
 
-          if (typeof hbPayload.freeHeap === 'number' && hbPayload.freeHeap < 10000) {
-            console.warn(`${LOG_PREFIX} Low heap warning: ${hbPayload.freeHeap} bytes`);
+          if (typeof hbPayload.freeHeap === 'number') {
+            if (hbPayload.freeHeap < 10000) {
+              if (!hasWarnedLowHeap) {
+                console.warn(`${LOG_PREFIX} Low heap warning: ${hbPayload.freeHeap} bytes`);
+                hasWarnedLowHeap = true;
+              }
+            } else {
+              hasWarnedLowHeap = false;
+            }
           }
 
           reconnectAttempts = 0;
@@ -347,6 +355,7 @@ export function subscribeEsp32Stream({
     console.log(`${LOG_PREFIX} Manual reconnect triggered by user`);
     isClosed = false;
     reconnectAttempts = 0;
+    hasWarnedLowHeap = false;
     clearTimeout(reconnectTimer);
     clearTimeout(watchdogTimer);
     if (es && typeof es.close === 'function') {

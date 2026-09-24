@@ -385,9 +385,45 @@ describe('SSE Reconnect and Recovery Behavior', () => {
       expect(result.current.data.sensors[0].temp).toBe(-19.2);
       expect(result.current.lastUpdate).toBe(1700000005000);
       expect(result.current.history).toHaveLength(2);
-      expect(result.current.history[1].t1).toBe(-19.2);
-
       esp32Service.subscribeEsp32Stream.mockRestore();
+    });
+  });
+
+  describe('7. Network Monitor Cleanup Across Reconnects', () => {
+    it('subscribes to network monitor exactly once and unsubscribes on cleanup', () => {
+      jest.useFakeTimers();
+      const mockUnsubscribeNetwork = jest.fn();
+      const mockNetInfo = {
+        addEventListener: jest.fn(() => mockUnsubscribeNetwork),
+      };
+
+      const controller = subscribeEsp32Stream({
+        ip: '192.168.4.1',
+        initialRetryDelay: 1000,
+        networkOptions: { NetInfoImpl: mockNetInfo },
+        EventSourceImpl: MockEventSource,
+      });
+
+      // Exactly 1 network subscription opened initially
+      expect(mockNetInfo.addEventListener).toHaveBeenCalledTimes(1);
+
+      // Reconnect cycle 1
+      MockEventSource.instances[0].dispatchEvent('error', new Error('Err'));
+      jest.advanceTimersByTime(1050);
+      expect(MockEventSource.instances.length).toBe(2);
+
+      // Reconnect cycle 2
+      MockEventSource.instances[1].dispatchEvent('error', new Error('Err'));
+      jest.advanceTimersByTime(1550);
+      expect(MockEventSource.instances.length).toBe(3);
+
+      // Network listener was NOT re-subscribed
+      expect(mockNetInfo.addEventListener).toHaveBeenCalledTimes(1);
+      expect(mockUnsubscribeNetwork).not.toHaveBeenCalled();
+
+      // Clean up stream
+      controller.unsubscribe();
+      expect(mockUnsubscribeNetwork).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -104,4 +104,37 @@ describe('useTemperatures hook with SSE streaming', () => {
     expect(result.current.offlineSensors).toHaveLength(1);
     expect(result.current.offlineSensors[0].name).toBe('T2 Ra dàn');
   });
+
+  it('caps history length at 30 items to prevent unbounded memory growth', async () => {
+    let capturedOnData;
+    const mockController = jest.fn();
+
+    esp32Service.subscribeEsp32Stream.mockImplementation(({ onData }) => {
+      capturedOnData = onData;
+      return mockController;
+    });
+
+    const { result } = await renderHook(() => useTemperatures());
+
+    await act(async () => {
+      result.current.toggleDemoMode();
+    });
+
+    // Send 35 data points
+    await act(async () => {
+      for (let i = 0; i < 35; i++) {
+        capturedOnData({
+          receivedAt: 1700000000000 + i * 1000,
+          sensors: [
+            { id: 0, temperatureC: -20 + i * 0.1, online: true },
+            { id: 1, temperatureC: -28 + i * 0.1, online: true },
+            { id: 2, temperatureC: -18 + i * 0.1, online: true },
+          ],
+        });
+      }
+    });
+
+    expect(result.current.history).toHaveLength(30);
+    expect(result.current.history[29].t1).toBeCloseTo(-20 + 34 * 0.1, 1);
+  });
 });
