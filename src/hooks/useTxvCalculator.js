@@ -23,20 +23,59 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
   // Trạng thái cấu hình
   const [selectedRefId, setSelectedRefId] = useState(TXV_CONFIG.defaultRefrigerant);
   const [selectedValveId, setSelectedValveId] = useState(TXV_CONFIG.defaultValve);
-  const [opMode, setOpMode] = useState(TXV_CONFIG.defaultOpMode); // 'target_room' | 'live' | 'manual'
+  const [opMode, setOpMode] = useState(TXV_CONFIG.defaultOpMode ?? 'live'); // 'target_room' | 'live' | 'manual'
   const [isAutoSyncSensors, setIsAutoSyncSensors] = useState(true);
-  const [evapSource, setEvapSource] = useState(TXV_CONFIG.defaultEvapSource); // 't2' | 't1_td' | 'pressure'
+  const [evapSource, setEvapSource] = useState(TXV_CONFIG.defaultEvapSource ?? 't2'); // 't2' | 't1_td' | 'pressure'
 
   // Thông số mục tiêu
-  const [targetRoomTemp, setTargetRoomTemp] = useState(TXV_CONFIG.defaultRoomTempC); // Mặc định kho đông -20°C
+  const [targetRoomTemp, setTargetRoomTemp] = useState(TXV_CONFIG.defaultRoomTempC ?? -20.0); // Mặc định kho đông -20°C
   const [tdValue, setTdValue] = useState(TXV_CONFIG.defaultTdK); // Chênh nhiệt dàn lạnh TD (K)
   const [targetSh, setTargetSh] = useState(TXV_CONFIG.defaultTargetShK); // Superheat mục tiêu (K)
 
-  // Thông số đo đạc & tính toán (Phân biệt rõ barG áp kế và barA tuyệt đối)
-  const [evapTemp, setEvapTemp] = useState(TXV_CONFIG.defaultEvapTempC); // T_bay_hoi (°C)
-  const [evapPressureBarG, setEvapPressureBarG] = useState(TXV_CONFIG.defaultEvapPressureBarG ?? 1.21); // P_bay_hoi (bar g)
-  const [evapPressureBarA, setEvapPressureBarA] = useState(TXV_CONFIG.defaultEvapPressureBarA ?? 2.22); // P_bay_hoi (bar a)
-  const [suctionTemp, setSuctionTemp] = useState(TXV_CONFIG.defaultSuctionTempC); // T_hoi_hut (°C)
+  // Thông số đo đạc & tính toán (Khởi tạo trực tiếp từ cảm biến live nếu ở chế độ live)
+  const [evapTemp, setEvapTemp] = useState(() => {
+    if (TXV_CONFIG.defaultOpMode === 'live') {
+      if (TXV_CONFIG.defaultEvapSource === 't2') {
+        return isValidTemperature(liveT2) ? Number(liveT2.toFixed(1)) : null;
+      }
+      if (TXV_CONFIG.defaultEvapSource === 't1_td') {
+        return isValidTemperature(liveT1) ? Number((liveT1 - TXV_CONFIG.defaultTdK).toFixed(1)) : null;
+      }
+    }
+    return TXV_CONFIG.defaultEvapTempC;
+  });
+
+  const [evapPressureBarA, setEvapPressureBarA] = useState(() => {
+    if (TXV_CONFIG.defaultOpMode === 'live') {
+      if (!isValidTemperature(liveT2)) return null;
+      try {
+        return tempToPressure(Number(liveT2.toFixed(1)), TXV_CONFIG.defaultRefrigerant);
+      } catch {
+        return null;
+      }
+    }
+    return TXV_CONFIG.defaultEvapPressureBarA ?? 2.22;
+  });
+
+  const [evapPressureBarG, setEvapPressureBarG] = useState(() => {
+    if (TXV_CONFIG.defaultOpMode === 'live') {
+      if (!isValidTemperature(liveT2)) return null;
+      try {
+        const pA = tempToPressure(Number(liveT2.toFixed(1)), TXV_CONFIG.defaultRefrigerant);
+        return barAbsoluteToGauge(pA);
+      } catch {
+        return null;
+      }
+    }
+    return TXV_CONFIG.defaultEvapPressureBarG ?? 1.21;
+  });
+
+  const [suctionTemp, setSuctionTemp] = useState(() => {
+    if (TXV_CONFIG.defaultOpMode === 'live') {
+      return isValidTemperature(liveT3) ? Number(liveT3.toFixed(1)) : null;
+    }
+    return TXV_CONFIG.defaultSuctionTempC;
+  });
 
   // Memoized objects van và môi chất
   const currentRef = useMemo(
