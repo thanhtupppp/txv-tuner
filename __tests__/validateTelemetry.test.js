@@ -1,4 +1,4 @@
-import { validateTelemetry } from '../src/domain/telemetry/validateTelemetry';
+import { validateTelemetry, getSensorTemperature } from '../src/domain/telemetry/validateTelemetry';
 
 const now = 1_700_000_000_000;
 
@@ -122,5 +122,51 @@ describe('validateTelemetry', () => {
       now,
     );
     expect(result.warnings).toContain('TIMESTAMP_IN_FUTURE');
+  });
+
+  it('accepts ESP32 firmware payload using sensor.temp', () => {
+    const firmwarePayload = {
+      uptime: 120,
+      heartbeat: true,
+      serverTimestamp: now,
+      deltaAir: 3.2,
+      sensors: [
+        { id: 0, name: 'T1 Vào dàn', temp: -15.5, online: true },
+        { id: 1, name: 'T2 Ra dàn', temp: -18.7, online: true },
+        { id: 2, name: 'T3 Bầu TXV', temp: -8.2, online: true },
+      ],
+    };
+    expect(validateTelemetry(firmwarePayload, now)).toEqual({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
+  });
+
+  describe('getSensorTemperature', () => {
+    it('extracts temp matching firmware payload', () => {
+      expect(getSensorTemperature({ temp: -15.5 })).toBe(-15.5);
+    });
+
+    it('extracts temperature from alternate schema', () => {
+      expect(getSensorTemperature({ temperature: 21.3 })).toBe(21.3);
+    });
+
+    it('extracts value and current as fallbacks', () => {
+      expect(getSensorTemperature({ value: 10.5 })).toBe(10.5);
+      expect(getSensorTemperature({ current: 12.0 })).toBe(12.0);
+    });
+
+    it('prioritizes temp over temperature/value/current', () => {
+      expect(getSensorTemperature({ temp: 1, temperature: 2, value: 3, current: 4 })).toBe(1);
+    });
+
+    it('returns null when no valid finite temperature is present', () => {
+      expect(getSensorTemperature(null)).toBeNull();
+      expect(getSensorTemperature({})).toBeNull();
+      expect(getSensorTemperature({ temp: null })).toBeNull();
+      expect(getSensorTemperature({ temp: '25' })).toBeNull();
+      expect(getSensorTemperature({ temp: NaN })).toBeNull();
+    });
   });
 });

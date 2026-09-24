@@ -9,8 +9,10 @@ const isFiniteNumber = (value) => (
 );
 
 function getSensorTemperature(sensor) {
+  if (isFiniteNumber(sensor?.temp)) return sensor.temp;
   if (isFiniteNumber(sensor?.temperature)) return sensor.temperature;
   if (isFiniteNumber(sensor?.value)) return sensor.value;
+  if (isFiniteNumber(sensor?.current)) return sensor.current;
   return null;
 }
 
