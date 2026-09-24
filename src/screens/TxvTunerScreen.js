@@ -37,16 +37,17 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
     currentRef,
     currentValve,
     actualSh,
-    deltaSh
+    deltaSh,
+    interlock,
   } = useTxvCalculator(liveT1, liveT2, liveT3, isOnline);
 
   const [condTemp, setCondTemp] = useState(40.0);
   const [shHistory, setShHistory] = useState([]);
 
-  const recommendation = calculateTxvRecommendation(actualSh, targetSh, currentValve);
+  const recommendation = calculateTxvRecommendation(actualSh, targetSh, currentValve, interlock);
 
   useEffect(() => {
-    if (typeof actualSh === 'number' && !isNaN(actualSh)) {
+    if (typeof actualSh === 'number' && !isNaN(actualSh) && Number.isFinite(actualSh) && interlock?.allowed !== false) {
       setShHistory((prev) => {
         const last = prev[prev.length - 1];
         if (last && Math.abs(last.actualSh - actualSh) < 0.05 && last.targetSh === targetSh) {
@@ -63,7 +64,7 @@ export function TxvTunerScreen({ liveT1, liveT2, liveT3, isOnline, isDemoMode, t
         ];
       });
     }
-  }, [actualSh, targetSh, recommendation.direction]);
+  }, [actualSh, targetSh, recommendation.direction, interlock?.allowed]);
 
   return (
     <ScrollView
