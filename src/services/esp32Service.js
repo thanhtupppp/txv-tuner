@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { startNetworkMonitoring } from './networkMonitor';
 import { normalizeTelemetry } from '../domain/telemetry/normalizeTelemetry';
-import { requestEsp32 } from './esp32Request';
+import { requestEsp32, requestEsp32SafeRead } from './esp32Request';
 import { normalizeEsp32Error } from './esp32Errors';
 
 const LOG_PREFIX = '[ESP32]';
@@ -377,15 +377,18 @@ export function subscribeEsp32Stream({
 /**
  * Fetch một lần qua HTTP REST (dự phòng cho Polling hoặc Health Check)
  */
-export async function fetchEsp32Temperatures(ip, timeoutMs = 3000) {
+export async function fetchEsp32Temperatures(ip, timeoutMs = 3000, options = {}) {
   const host = String(ip).trim().replace(/^https?:\/\//i, '').split('/')[0];
   const url = `http://${host}/api/temperatures`;
 
   try {
-    const { data } = await requestEsp32(url, {
+    const { data } = await requestEsp32SafeRead(url, {
       timeoutMs,
+      retries: options.retries ?? 1,
+      ...options,
       headers: {
         Accept: 'application/json',
+        ...options.headers,
       },
     });
 
@@ -398,15 +401,18 @@ export async function fetchEsp32Temperatures(ip, timeoutMs = 3000) {
 /**
  * Lấy thông số hệ thống của ESP32 (freeHeap, uptime, wifiRSSI, clientConnected)
  */
-export async function fetchEsp32Stats(ip, timeoutMs = 3000) {
+export async function fetchEsp32Stats(ip, timeoutMs = 3000, options = {}) {
   const host = String(ip).trim().replace(/^https?:\/\//i, '').split('/')[0];
   const url = `http://${host}/api/stats`;
 
   try {
-    const { data } = await requestEsp32(url, {
+    const { data } = await requestEsp32SafeRead(url, {
       timeoutMs,
+      retries: options.retries ?? 1,
+      ...options,
       headers: {
         Accept: 'application/json',
+        ...options.headers,
       },
     });
 

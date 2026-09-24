@@ -15,6 +15,7 @@ export function TxvResultPanel({
   const isHigh = recommendation?.status === 'high';
   const isLow = recommendation?.status === 'low';
   const isOptimal = recommendation?.status === 'optimal';
+  const isBlocked = recommendation?.allowed === false;
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -78,6 +79,7 @@ export function TxvResultPanel({
   });
 
   const getStatusColor = () => {
+    if (isBlocked) return theme.inkMuted || '#94a3b8';
     if (isOptimal) return theme.optimal;
     if (isLow) return theme.cold;
     return theme.danger;
@@ -101,7 +103,7 @@ export function TxvResultPanel({
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Quá Nhiệt Thực Tế (SH)</Text>
             <View style={styles.valueRow}>
               <Text testID="actual-sh-value" style={[styles.numberLarge, { color: theme.screenInk }]}>
-                {typeof actualSh === 'number' ? actualSh.toFixed(1) : '--'}
+                {typeof actualSh === 'number' && Number.isFinite(actualSh) ? actualSh.toFixed(1) : '--'}
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K (°C)</Text>
             </View>
@@ -111,7 +113,7 @@ export function TxvResultPanel({
             <Text style={[styles.wellLabel, { color: theme.screenMuted }]}>Độ Lệch Mục Tiêu (ΔSH)</Text>
             <View style={styles.valueRow}>
               <Text testID="delta-sh-value" style={[styles.numberLarge, { color: theme.screenInk }]}>
-                {typeof deltaSh === 'number' ? (deltaSh > 0 ? `+${deltaSh.toFixed(1)}` : deltaSh.toFixed(1)) : '--'}
+                {typeof deltaSh === 'number' && Number.isFinite(deltaSh) ? (deltaSh > 0 ? `+${deltaSh.toFixed(1)}` : deltaSh.toFixed(1)) : '--'}
               </Text>
               <Text style={[styles.unitLarge, { color: theme.screenMuted }]}>K</Text>
             </View>
@@ -172,16 +174,20 @@ export function TxvResultPanel({
                 )}
               </Svg>
             </Animated.View>
-            <Text testID="dial-label" style={[styles.dialLabel, { color: theme.screenInk }]}>
-              {recommendation?.direction === 'CW' ? '↻ CW' : recommendation?.direction === 'CCW' ? '↺ CCW' : '✓ OK'}
+            <Text testID="dial-label" style={[styles.dialLabel, { color: isBlocked ? (theme.screenMuted || '#94a3b8') : theme.screenInk }]}>
+              {isBlocked
+                ? '⚠️ KHÓA'
+                : (recommendation?.direction === 'CW' ? '↻ CW' : recommendation?.direction === 'CCW' ? '↺ CCW' : '✓ OK')}
             </Text>
           </SkeuoLcdWell>
 
           <View style={styles.actionDetails}>
             <Text testID="action-heading" style={[styles.actionHeading, { color: theme.ink }]}>
-              {recommendation?.direction === 'NONE'
-                ? 'Độ quá nhiệt đã chuẩn tối ưu!'
-                : `👉 Xoay ${recommendation?.turnsFraction || ''} ${recommendation?.direction === 'CW' ? 'CÙNG' : 'NGƯỢC'} chiều kim đồng hồ (${recommendation?.direction})`}
+              {isBlocked
+                ? (recommendation?.heading || 'Không thể đề xuất điều chỉnh')
+                : (recommendation?.direction === 'NONE'
+                  ? 'Độ quá nhiệt đã chuẩn tối ưu!'
+                  : `👉 Xoay ${recommendation?.turnsFraction || ''} ${recommendation?.direction === 'CW' ? 'CÙNG' : 'NGƯỢC'} chiều kim đồng hồ (${recommendation?.direction})`)}
             </Text>
             <Text style={[styles.actionDesc, { color: theme.inkMuted }]}>
               {recommendation?.text}

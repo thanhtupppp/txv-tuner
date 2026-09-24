@@ -6,7 +6,9 @@ import { useMaterial, SkeuoPanel, SkeuoLcdWell, SkeuoButton, SkeuoNumberInput, I
 export function TxvInputsGrid({
   opMode = 'live',
   evapTemp = -27.0,
-  evapPressure = 2.29,
+  evapPressure,
+  evapPressureBarG,
+  evapPressureBarA,
   suctionTemp = -21.0,
   setSuctionTemp,
   targetSh = 6.0,
@@ -24,6 +26,12 @@ export function TxvInputsGrid({
   themeMode,
 }) {
   const { theme } = useMaterial();
+
+  const displayPressureG = evapPressureBarG !== undefined ? evapPressureBarG : evapPressure;
+  const isEvapTempValid = typeof evapTemp === 'number' && Number.isFinite(evapTemp);
+  const isPressureValid = typeof displayPressureG === 'number' && Number.isFinite(displayPressureG);
+  const isSuctionTempValid = typeof suctionTemp === 'number' && Number.isFinite(suctionTemp);
+  const isTargetShValid = typeof targetSh === 'number' && Number.isFinite(targetSh);
 
   return (
     <View style={styles.container}>
@@ -103,7 +111,7 @@ export function TxvInputsGrid({
                 testID="evap-temp-input"
                 style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Nhiệt độ bay hơi, độ C"
-                value={typeof evapTemp === 'number' ? String(evapTemp) : '0'}
+                value={isEvapTempValid ? String(evapTemp) : ''}
                 onChangeText={handleEvapTempChange}
                 editable={opMode === 'manual' || !isAutoSyncSensors}
                 keyboardType="numeric"
@@ -113,19 +121,24 @@ export function TxvInputsGrid({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Áp suất bay hơi Pe (bar):</Text>
+            <Text style={[styles.inputLabel, { color: theme.inkMuted }]}>Áp suất bay hơi Pe (bar g — áp kế):</Text>
             <SkeuoLcdWell variant="readout" style={styles.wellInput}>
               <SkeuoNumberInput
                 testID="evap-pressure-input"
                 style={[styles.numericInput, { color: theme.screenInk }]}
-                accessibilityLabel="Áp suất bay hơi, bar"
-                value={typeof evapPressure === 'number' ? String(evapPressure) : '0'}
+                accessibilityLabel="Áp suất bay hơi, bar g"
+                value={isPressureValid ? String(displayPressureG) : ''}
                 onChangeText={handleEvapPressureChange}
                 editable={opMode === 'manual' || !isAutoSyncSensors || evapSource === 'pressure'}
                 keyboardType="numeric"
               />
-              <Text style={[styles.unitText, { color: theme.screenMuted }]}>bar</Text>
+              <Text style={[styles.unitText, { color: theme.screenMuted }]}>bar g</Text>
             </SkeuoLcdWell>
+            {typeof evapPressureBarA === 'number' && Number.isFinite(evapPressureBarA) && (
+              <Text style={[styles.pressureHint, { color: theme.inkMuted }]}>
+                (~{evapPressureBarA.toFixed(2)} bar a tuyệt đối)
+              </Text>
+            )}
           </View>
         </View>
       </SkeuoPanel>
@@ -149,10 +162,12 @@ export function TxvInputsGrid({
                 onFocus={() => setIsAutoSyncSensors(false)}
                 style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Nhiệt độ hơi hút, độ C"
-                value={typeof suctionTemp === 'number' ? String(suctionTemp) : '0'}
+                value={isSuctionTempValid ? String(suctionTemp) : ''}
                 onChangeText={(val) => {
                   setIsAutoSyncSensors(false);
-                  setSuctionTemp(parseFloat(val) || 0);
+                  if (typeof setSuctionTemp === 'function') {
+                    setSuctionTemp(val);
+                  }
                 }}
                 keyboardType="numeric"
               />
@@ -178,7 +193,9 @@ export function TxvInputsGrid({
                   ]}
                   onPress={() => {
                     setIsAutoSyncSensors(false);
-                    setSuctionTemp(t);
+                    if (typeof setSuctionTemp === 'function') {
+                      setSuctionTemp(t);
+                    }
                   }}
                 >
                   <Text style={[styles.presetBtnText, { color: isMatch ? theme.onAccent : theme.ink, fontWeight: isMatch ? '800' : '600' }]}>
@@ -208,8 +225,12 @@ export function TxvInputsGrid({
               <SkeuoNumberInput
                 style={[styles.numericInput, { color: theme.screenInk }]}
                 accessibilityLabel="Quá nhiệt mục tiêu, K"
-                value={typeof targetSh === 'number' ? String(targetSh) : '6'}
-                onChangeText={(val) => setTargetSh(parseFloat(val) || 6)}
+                value={isTargetShValid ? String(targetSh) : ''}
+                onChangeText={(val) => {
+                  if (typeof setTargetSh === 'function') {
+                    setTargetSh(val);
+                  }
+                }}
                 keyboardType="numeric"
               />
               <Text style={[styles.unitText, { color: theme.screenMuted }]}>K</Text>
@@ -229,7 +250,11 @@ export function TxvInputsGrid({
                     borderColor: targetSh === k ? theme.accent : theme.border
                   }
                 ]}
-                onPress={() => setTargetSh(k)}
+                onPress={() => {
+                  if (typeof setTargetSh === 'function') {
+                    setTargetSh(k);
+                  }
+                }}
               >
                 <Text
                   style={[
@@ -321,6 +346,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: MONO,
     marginLeft: 6,
+  },
+  pressureHint: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 2,
+    marginLeft: 4,
+    fontFamily: MONO,
   },
   presetsRow: {
     flexDirection: 'row',
