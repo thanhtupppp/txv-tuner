@@ -212,7 +212,7 @@ describe('esp32Service SSE Streaming', () => {
       onData,
       onStatusChange,
       EventSourceImpl: MockEventSource,
-      networkOptions: { NetInfoImpl: mockNetInfo }
+      networkOptions: { NetInfoImpl: mockNetInfo, debounceMs: 0 }
     });
 
     expect(MockEventSource.instances.length).toBe(1);

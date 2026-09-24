@@ -80,14 +80,19 @@ export function subscribeEsp32Stream({
   let networkUnsubscribe = null;
   let reconnectAttempts = 0;
   let isNetworkOnline = true;
+  let wasConnectedBefore = false;
+  let latestNetState = { isConnected: true, hasInternet: true };
 
   const url = buildStreamUrl(ip);
 
   // Theo dõi trạng thái kết nối mạng qua NetInfo / Web
   networkUnsubscribe = startNetworkMonitoring((netState) => {
+    latestNetState = netState;
     isNetworkOnline = netState.isConnected;
+
     if (!netState.isConnected) {
       console.log(`${LOG_PREFIX} [NetInfo] Disconnected from WiFi / Network`);
+      wasConnectedBefore = Boolean(es);
       clearTimeout(reconnectTimer);
       clearTimeout(watchdogTimer);
       if (es && typeof es.close === 'function') {
@@ -97,11 +102,16 @@ export function subscribeEsp32Stream({
       onStatusChange('offline', {
         connected: false,
         reconnecting: false,
+        hasInternet: netState.hasInternet,
         reason: 'network_disconnected',
         error: 'Chưa kết nối Wi-Fi ESP32'
       });
     } else {
-      console.log(`${LOG_PREFIX} [NetInfo] Network restored, attempting auto-reconnect...`);
+      if (wasConnectedBefore) {
+        console.log(`${LOG_PREFIX} [NetworkMonitor] Reconnected to ESP32 WiFi (was connected before). Auto-reconnecting SSE...`);
+      } else {
+        console.log(`${LOG_PREFIX} [NetInfo] Network available, establishing connection...`);
+      }
       if (!isClosed && !es) {
         reconnectAttempts = 0;
         connect();
@@ -217,6 +227,7 @@ export function subscribeEsp32Stream({
             connected: true,
             reconnecting: false,
             attempt: 0,
+            hasInternet: latestNetState?.hasInternet,
             serverTimestamp: payload.serverTimestamp,
             offlineCount: offlineSensors.length
           });
