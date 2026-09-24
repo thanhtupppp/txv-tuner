@@ -6,11 +6,15 @@ import {
   tempToPressure
 } from '../data/danfossData';
 import { TXV_CONFIG } from '../constants/txvConfig';
-import { validateTxvInput, isValidTemperature } from '../domain/txv/validateTxvInput';
+import {
+  validateTxvInput,
+  isValidTemperature,
+  calculateSuperheat,
+  calculateEvaporation,
+} from '../domain/txv';
 
 /**
- * Custom Hook quản lý toàn bộ logic tính toán nhiệt động lực học và quá nhiệt van Danfoss TXV.
- * Tích hợp Sensor Interlock: Cấm dùng fallback nhiệt độ để tạo ra dữ liệu quá nhiệt giả khi cảm biến offline.
+ * Custom Hook Adapter quản lý trạng thái giao diện và kết nối domain tính toán TXV.
  */
 export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
   // Trạng thái cấu hình
@@ -44,37 +48,22 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
   // Xử lý chuyển đổi nguồn tính T_evap
   const handleSetEvapSource = useCallback((source) => {
     setEvapSource(source);
-    if (source === 't2') {
-      if (isValidTemperature(liveT2)) {
-        const calculatedEvapT = Number(liveT2.toFixed(1));
-        setEvapTemp(calculatedEvapT);
-        try {
-          setEvapPressure(tempToPressure(calculatedEvapT, selectedRefId));
-        } catch (err) {}
-      } else {
-        setEvapTemp(null);
+    const result = calculateEvaporation({
+      source,
+      t1C: liveT1,
+      t2C: liveT2,
+      tdK: tdValue,
+      pressureBarA: evapPressure,
+      refrigerantId: selectedRefId,
+    });
+
+    if (result.valid) {
+      setEvapTemp(result.evapTempC);
+      if (result.evapPressureBarA !== null) {
+        setEvapPressure(result.evapPressureBarA);
       }
-    } else if (source === 't1_td') {
-      if (isValidTemperature(liveT1)) {
-        const calculatedEvapT = Number((liveT1 - tdValue).toFixed(1));
-        setEvapTemp(calculatedEvapT);
-        try {
-          setEvapPressure(tempToPressure(calculatedEvapT, selectedRefId));
-        } catch (err) {}
-      } else {
-        setEvapTemp(null);
-      }
-    } else if (source === 'pressure') {
-      try {
-        if (typeof evapPressure === 'number' && Number.isFinite(evapPressure) && evapPressure > 0) {
-          const calculatedEvapT = Number(pressureToTemp(evapPressure, selectedRefId).toFixed(1));
-          setEvapTemp(calculatedEvapT);
-        } else {
-          setEvapTemp(null);
-        }
-      } catch (err) {
-        setEvapTemp(null);
-      }
+    } else {
+      setEvapTemp(null);
     }
   }, [liveT1, liveT2, tdValue, selectedRefId, evapPressure]);
 
@@ -92,7 +81,6 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
       const pBar = tempToPressure(calculatedEvapT, selectedRefId);
       setEvapPressure(pBar);
     } catch (error) {
-      console.error('Lỗi tính áp suất:', error);
       setEvapPressure(0);
     }
 
@@ -102,46 +90,32 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
       } else {
         setSuctionTemp(null);
       }
-    } else {
-      // Giữ nguyên giá trị người dùng nhập
     }
   }, [selectedRefId, tdValue, isAutoSyncSensors, liveT3]);
 
-  // Tự động đồng bộ với cảm biến thời gian thực khi ở Live mode
-  // TUYỆT ĐỐI KHÔNG dùng fallback tĩnh (-12°C) làm giá trị thật khi sensor offline
+  // Tự động đồng bộ với cảm biến thời gian thực khi ở Live mode qua calculateEvaporation
   useEffect(() => {
     if (opMode === 'live' && isAutoSyncSensors) {
-      const isT1Valid = isValidTemperature(liveT1);
-      const isT2Valid = isValidTemperature(liveT2);
-      const isT3Valid = isValidTemperature(liveT3);
+      const evapResult = calculateEvaporation({
+        source: evapSource,
+        t1C: liveT1,
+        t2C: liveT2,
+        tdK: tdValue,
+        pressureBarA: evapPressure,
+        refrigerantId: selectedRefId,
+      });
 
-      let calculatedEvapT = null;
-      if (evapSource === 't2') {
-        calculatedEvapT = isT2Valid ? Number(liveT2.toFixed(1)) : null;
-      } else if (evapSource === 't1_td') {
-        calculatedEvapT = isT1Valid ? Number((liveT1 - tdValue).toFixed(1)) : null;
-      } else if (evapSource === 'pressure') {
-        if (typeof evapPressure === 'number' && Number.isFinite(evapPressure) && evapPressure > 0) {
-          try {
-            calculatedEvapT = Number(pressureToTemp(evapPressure, selectedRefId).toFixed(1));
-          } catch {
-            calculatedEvapT = null;
-          }
+      if (evapResult.valid) {
+        setEvapTemp(evapResult.evapTempC);
+        if (evapSource !== 'pressure' && evapResult.evapPressureBarA !== null) {
+          setEvapPressure(evapResult.evapPressureBarA);
         }
+      } else {
+        setEvapTemp(null);
       }
 
-      setEvapTemp(calculatedEvapT);
-
-      if (calculatedEvapT !== null && evapSource !== 'pressure') {
-        try {
-          setEvapPressure(tempToPressure(calculatedEvapT, selectedRefId));
-        } catch (error) {
-          setEvapPressure(0);
-        }
-      }
-
-      // Nhiệt độ hơi hút: Chỉ gán khi cảm biến T3 hợp lệ, không dùng fallback -12°C
-      setSuctionTemp(isT3Valid ? Number(liveT3.toFixed(1)) : null);
+      // Nhiệt độ hơi hút: Chỉ gán khi cảm biến T3 hợp lệ
+      setSuctionTemp(isValidTemperature(liveT3) ? Number(liveT3.toFixed(1)) : null);
     } else if (opMode === 'target_room') {
       const calculatedEvapT = Number((targetRoomTemp - tdValue).toFixed(1));
       setEvapTemp(calculatedEvapT);
@@ -153,8 +127,7 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
       }
 
       if (isAutoSyncSensors) {
-        const isT3Valid = isValidTemperature(liveT3);
-        setSuctionTemp(isT3Valid ? Number(liveT3.toFixed(1)) : null);
+        setSuctionTemp(isValidTemperature(liveT3) ? Number(liveT3.toFixed(1)) : null);
       }
     }
   }, [
@@ -196,19 +169,20 @@ export function useTxvCalculator(liveT1, liveT2, liveT3, isOnline = true) {
     }
   }, [selectedRefId]);
 
-  // Độ quá nhiệt thực tế (SH)
-  // Nếu mất cảm biến (suctionTemp hoặc evapTemp là null), SH là null (không suy diễn giả lập)
-  const actualSh = useMemo(() => {
-    if (suctionTemp === null || evapTemp === null) return null;
-    if (!Number.isFinite(suctionTemp) || !Number.isFinite(evapTemp)) return null;
-    const sh = suctionTemp - evapTemp;
-    return Number(sh.toFixed(1));
-  }, [suctionTemp, evapTemp]);
+  // Tính Superheat thông qua pure module calculateSuperheat
+  const shCalculation = useMemo(() => {
+    return calculateSuperheat({
+      suctionTempC: suctionTemp,
+      evapTempC: evapTemp,
+      targetShK: targetSh,
+      lowThresholdK: TXV_CONFIG.lowMaxK ?? 4.0,
+      optimalThresholdK: TXV_CONFIG.optimalMaxK ?? 8.0,
+      toleranceK: TXV_CONFIG.adjustmentToleranceK ?? 0.4,
+    });
+  }, [suctionTemp, evapTemp, targetSh]);
 
-  const deltaSh = useMemo(() => {
-    if (actualSh === null) return null;
-    return Number((actualSh - targetSh).toFixed(1));
-  }, [actualSh, targetSh]);
+  const actualSh = shCalculation.superheatK;
+  const deltaSh = shCalculation.deltaShK;
 
   // Khóa liên động Sensor Interlock
   const interlock = useMemo(() => {
