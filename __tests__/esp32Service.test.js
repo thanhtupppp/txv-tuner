@@ -274,3 +274,53 @@ describe('esp32Service SSE Streaming', () => {
     controller.unsubscribe();
   });
 });
+
+describe('esp32Service REST Fallbacks', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('fetchEsp32Temperatures fetches and returns data via safe read', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {},
+      text: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          sensors: [{ id: 0, name: 'T1', temp: 25.0, online: true }],
+          uptime: 100,
+        }),
+      ),
+    });
+
+    const data = await fetchEsp32Temperatures('192.168.4.1');
+    expect(data.sensors[0].temp).toBe(25.0);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://192.168.4.1/api/temperatures',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('fetchEsp32Stats fetches system statistics via safe read', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {},
+      text: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          freeHeap: 245000,
+          uptime: 300,
+          clientConnected: true,
+        }),
+      ),
+    });
+
+    const data = await fetchEsp32Stats('192.168.4.1');
+    expect(data.freeHeap).toBe(245000);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://192.168.4.1/api/stats',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+});
+
