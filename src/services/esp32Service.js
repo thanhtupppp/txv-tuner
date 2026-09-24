@@ -54,6 +54,7 @@ export function subscribeEsp32Stream({
   ip,
   onData,
   onHeartbeat,
+  onWarning = () => {},
   onStatusChange = () => {},
   onError = () => {},
   initialRetryDelay = 2000,
@@ -263,6 +264,22 @@ export function subscribeEsp32Stream({
           if (onHeartbeat) onHeartbeat(hbPayload);
         } catch (err) {
           console.error(`${LOG_PREFIX} Parse error for heartbeat:`, err);
+        }
+      });
+
+      // Lắng nghe sự kiện Warning từ ESP32 (ví dụ sắp tự restart do heap critical)
+      es.addEventListener('warning', (event) => {
+        if (isClosed) return;
+        try {
+          const raw = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          const warnPayload = {
+            ...raw,
+            receivedAt: Date.now()
+          };
+          console.warn(`${LOG_PREFIX} Warning event received from ESP32:`, warnPayload);
+          onWarning(warnPayload);
+        } catch (err) {
+          console.error(`${LOG_PREFIX} Parse error for warning event:`, err);
         }
       });
 

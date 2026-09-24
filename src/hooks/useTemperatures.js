@@ -25,12 +25,35 @@ export function useTemperatures() {
   });
 
   const [history, setHistory] = useState([]);
+  const [warningsLog, setWarningsLog] = useState([]);
 
-  // Tải IP đã lưu
+  // Tải IP và warnings log đã lưu
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY_IP).then((savedIp) => {
       if (savedIp) setEsp32Ip(savedIp);
     }).catch(() => {});
+
+    AsyncStorage.getItem('@esp32_warnings_log').then((raw) => {
+      if (raw) {
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) setWarningsLog(list);
+        } catch (e) {}
+      }
+    }).catch(() => {});
+  }, []);
+
+  const addWarning = useCallback((warn) => {
+    const item = {
+      id: Date.now() + Math.random(),
+      timestamp: Date.now(),
+      ...warn
+    };
+    setWarningsLog((prev) => {
+      const next = [item, ...prev].slice(0, 50);
+      AsyncStorage.setItem('@esp32_warnings_log', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   }, []);
 
   const saveEsp32Ip = async (newIp) => {
@@ -158,6 +181,17 @@ export function useTemperatures() {
           wifiRSSI: hb.wifiRSSI ?? prev?.wifiRSSI,
           clientConnected: true
         }));
+        if (typeof hb.freeHeap === 'number' && hb.freeHeap < 10000) {
+          addWarning({
+            type: hb.freeHeap < 5000 ? 'heap_critical' : 'heap_low',
+            message: `Free Heap thấp: ${(hb.freeHeap / 1024).toFixed(1)} KB`,
+            value: hb.freeHeap
+          });
+        }
+      },
+      onWarning: (w) => {
+        if (!isMounted) return;
+        addWarning(w);
       },
       onStatusChange: handleStatusChange
     });
@@ -269,6 +303,7 @@ export function useTemperatures() {
     statsLoading,
     refreshStats,
     offlineSensors,
+    warningsLog,
     reconnect,
     isDemoMode,
     toggleDemoMode,

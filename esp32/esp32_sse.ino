@@ -119,8 +119,25 @@ void loop() {
   // Đẩy heartbeat định kỳ qua SSE mỗi 10s
   if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
     lastHeartbeat = now;
+    uint32_t freeHeap = ESP.getFreeHeap();
+
+    // Tự động restart bảo vệ ESP32 nếu RAM xuống dưới 5KB
+    if (freeHeap < 5000) {
+      Serial.print("⚠️ CRITICAL: Free heap = ");
+      Serial.print(freeHeap);
+      Serial.println(" bytes (< 5KB)! Sending warning & auto-restarting...");
+      
+      if (sseClient && sseClient.connected()) {
+        String warnMsg = "{\"type\":\"heap_critical\",\"freeHeap\":" + String(freeHeap) + ",\"message\":\"Bộ nhớ RAM < 5KB, ESP32 đang tự khởi động lại\"}";
+        sendSSEMessage("warning", warnMsg);
+      }
+      delay(1500); // Chờ 1.5s để gói tin SSE gửi đến App
+      ESP.restart();
+      return;
+    }
+
     if (sseClient && sseClient.connected()) {
-      String hb = "{\"alive\":true,\"freeHeap\":" + String(ESP.getFreeHeap()) + ",\"uptime\":" + String(now / 1000) + "}";
+      String hb = "{\"alive\":true,\"freeHeap\":" + String(freeHeap) + ",\"uptime\":" + String(now / 1000) + "}";
       sendSSEMessage("heartbeat", hb);
     }
   }

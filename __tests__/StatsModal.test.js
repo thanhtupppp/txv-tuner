@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import {
   StatsModal,
   getSignalQuality,
@@ -189,7 +189,7 @@ describe('StatsModal Component Rendering', () => {
   });
 
   it('handles null stats gracefully without crashing', async () => {
-    const { getByText } = await renderModal({
+    const { getByText, queryByTestId } = await renderModal({
       visible: true,
       onClose: jest.fn(),
       stats: null,
@@ -197,5 +197,117 @@ describe('StatsModal Component Rendering', () => {
     });
 
     expect(getByText(/Chưa có dữ liệu|Đang chờ dữ liệu/i)).toBeTruthy();
+    expect(queryByTestId('warning-box-heap')).toBeNull();
+    expect(queryByTestId('warning-box-rssi')).toBeNull();
+  });
+
+  describe('Warning Boxes according to checklist', () => {
+    it('shows Weak warning box when RSSI is -75 dBm', async () => {
+      const { getByTestId, queryByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: { ...mockStats, wifiRSSI: -75, freeHeap: 60000 }
+      });
+
+      expect(getByTestId('warning-box-rssi')).toBeTruthy();
+      expect(queryByTestId('warning-box-heap')).toBeNull();
+    });
+
+    it('shows Very Weak warning box when RSSI is -85 dBm', async () => {
+      const { getByTestId, queryByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: { ...mockStats, wifiRSSI: -85, freeHeap: 60000 }
+      });
+
+      expect(getByTestId('warning-box-rssi')).toBeTruthy();
+      expect(queryByTestId('warning-box-heap')).toBeNull();
+    });
+
+    it('shows Critical warning box when Free Heap is 8KB (8000 bytes)', async () => {
+      const { getByTestId, queryByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: { ...mockStats, freeHeap: 8000, wifiRSSI: -50 }
+      });
+
+      expect(getByTestId('warning-box-heap')).toBeTruthy();
+      expect(queryByTestId('warning-box-rssi')).toBeNull();
+    });
+
+    it('does NOT show warning box when RSSI is -50 dBm and Heap is 50KB', async () => {
+      const { queryByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: { ...mockStats, wifiRSSI: -50, freeHeap: 51200 }
+      });
+
+      expect(queryByTestId('warning-box-rssi')).toBeNull();
+      expect(queryByTestId('warning-box-heap')).toBeNull();
+    });
+  });
+
+  describe('Info Tooltips interaction', () => {
+    it('toggles Heap tooltip on and off when tapping ℹ️', async () => {
+      const { getByTestId, queryByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: mockStats
+      });
+
+      expect(queryByTestId('tooltip-heap')).toBeNull();
+
+      // Tap ℹ️ to show
+      await act(async () => {
+        fireEvent.press(getByTestId('tooltip-btn-heap'));
+      });
+      expect(getByTestId('tooltip-heap')).toBeTruthy();
+
+      // Tap ℹ️ again to hide
+      await act(async () => {
+        fireEvent.press(getByTestId('tooltip-btn-heap'));
+      });
+      expect(queryByTestId('tooltip-heap')).toBeNull();
+    });
+
+    it('toggles RSSI and Uptime tooltips', async () => {
+      const { getByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: mockStats
+      });
+
+      await act(async () => {
+        fireEvent.press(getByTestId('tooltip-btn-rssi'));
+      });
+      expect(getByTestId('tooltip-rssi')).toBeTruthy();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('tooltip-btn-uptime'));
+      });
+      expect(getByTestId('tooltip-uptime')).toBeTruthy();
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('handles RSSI = 0 gracefully without false warning', async () => {
+      const { queryByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: { ...mockStats, wifiRSSI: 0, freeHeap: 50000 }
+      });
+
+      expect(queryByTestId('warning-box-rssi')).toBeNull();
+    });
+
+    it('handles Heap = 0 gracefully and shows critical warning', async () => {
+      const { getByTestId } = await renderModal({
+        visible: true,
+        onClose: jest.fn(),
+        stats: { ...mockStats, freeHeap: 0, wifiRSSI: -50 }
+      });
+
+      expect(getByTestId('warning-box-heap')).toBeTruthy();
+    });
   });
 });

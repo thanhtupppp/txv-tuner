@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -7,15 +7,17 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
   Platform
 } from 'react-native';
 import { useMaterial } from './SkeuoKit';
 
 /**
  * Đánh giá chất lượng sóng WiFi từ giá trị RSSI (dBm)
+ * Lưu ý: RSSI = 0 thường là uninitialized / disconnected
  */
 export const getSignalQuality = (rssi) => {
-  if (typeof rssi !== 'number' || isNaN(rssi)) {
+  if (typeof rssi !== 'number' || isNaN(rssi) || rssi === 0) {
     return { label: 'Không rõ', icon: '📶', color: '#9E9E9E' };
   }
   if (rssi >= -50) return { label: 'Rất mạnh (Excellent)', icon: '📶', color: '#4CAF50' };
@@ -57,9 +59,57 @@ export const formatUptime = (uptimeSeconds) => {
 };
 
 /**
+ * Hộp cảnh báo động có hiệu ứng chuyển đổi mượt mà
+ */
+export const WarningBox = ({ visible, type = 'warn', title, message, testID }) => {
+  const animOpacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(animOpacity, {
+      toValue: visible ? 1 : 0,
+      duration: 250,
+      useNativeDriver: Platform.OS !== 'web'
+    }).start();
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const isDanger = type === 'danger';
+  const bg = isDanger ? '#ffebee' : '#fff3e0';
+  const border = isDanger ? '#ffcdd2' : '#ffe082';
+  const textTitle = isDanger ? '#b71c1c' : '#e65100';
+  const textBody = isDanger ? '#c62828' : '#bf360c';
+
+  return (
+    <Animated.View
+      testID={testID}
+      style={[
+        styles.warningBox,
+        { backgroundColor: bg, borderColor: border, opacity: animOpacity }
+      ]}
+    >
+      <Text style={[styles.warningTitle, { color: textTitle }]}>{title}</Text>
+      <Text style={[styles.warningMessage, { color: textBody }]}>{message}</Text>
+    </Animated.View>
+  );
+};
+
+/**
+ * Thẻ giải thích chi tiết Tooltip khi bấm vào icon ℹ️
+ */
+export const InfoTooltip = ({ visible, text, testID }) => {
+  if (!visible) return null;
+  return (
+    <View testID={testID} style={styles.tooltipContainer}>
+      <Text style={styles.tooltipText}>{text}</Text>
+    </View>
+  );
+};
+
+/**
  * Thanh tiến trình Uptime hiển thị độ ổn định hoạt động liên tục
  */
-export const UptimeBar = ({ uptimeSeconds = 0 }) => {
+export const UptimeBar = ({ uptimeSeconds = 0, onToggleInfo, showInfo }) => {
   const maxUptime = 24 * 60 * 60; // Chu kỳ tham chiếu 24 giờ
   const sec = Number(uptimeSeconds) || 0;
   const progress = Math.min(sec / maxUptime, 1);
@@ -68,9 +118,26 @@ export const UptimeBar = ({ uptimeSeconds = 0 }) => {
   return (
     <View style={styles.uptimeContainer}>
       <View style={styles.uptimeHeader}>
-        <Text style={styles.statLabel}>Thời gian hoạt động (Uptime)</Text>
+        <View style={styles.labelWithInfo}>
+          <Text style={styles.statLabel}>Thời gian hoạt động (Uptime)</Text>
+          {onToggleInfo && (
+            <TouchableOpacity
+              testID="tooltip-btn-uptime"
+              onPress={onToggleInfo}
+              style={styles.infoBadge}
+              accessibilityLabel="Giải thích về Uptime"
+            >
+              <Text style={styles.infoBadgeText}>ℹ️</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={styles.statValue}>{formatUptime(sec)}</Text>
       </View>
+      <InfoTooltip
+        visible={showInfo}
+        testID="tooltip-uptime"
+        text="Thời gian ESP32 hoạt động liên tục từ lần cấp nguồn hoặc khởi động lại gần nhất. Khi chạy quá lâu (>19h), nên restart định kỳ để giải phóng bộ nhớ."
+      />
       <View style={styles.progressBarTrack}>
         <View
           style={[
@@ -90,17 +157,38 @@ export const UptimeBar = ({ uptimeSeconds = 0 }) => {
 };
 
 /**
- * Hàng hiển thị từng thông số đơn
+ * Hàng hiển thị từng thông số đơn kèm nút mở Tooltip
  */
-export const StatRow = ({ label, value, valueColor, icon }) => (
-  <View style={styles.statRow}>
-    <Text style={styles.statLabel}>{label}</Text>
-    <View style={styles.valueRow}>
-      {icon ? <Text style={styles.statIcon}>{icon}</Text> : null}
-      <Text style={[styles.statValue, valueColor ? { color: valueColor } : null]}>
-        {value}
-      </Text>
+export const StatRow = ({ label, value, valueColor, icon, onToggleInfo, infoVisible, infoText, infoTestId }) => (
+  <View style={styles.statRowWrapper}>
+    <View style={styles.statRow}>
+      <View style={styles.labelWithInfo}>
+        <Text style={styles.statLabel}>{label}</Text>
+        {onToggleInfo && (
+          <TouchableOpacity
+            testID={infoTestId ? `tooltip-btn-${infoTestId}` : undefined}
+            onPress={onToggleInfo}
+            style={styles.infoBadge}
+            accessibilityLabel={`Giải thích về ${label}`}
+          >
+            <Text style={styles.infoBadgeText}>ℹ️</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <View style={styles.valueRow}>
+        {icon ? <Text style={styles.statIcon}>{icon}</Text> : null}
+        <Text style={[styles.statValue, valueColor ? { color: valueColor } : null]}>
+          {value}
+        </Text>
+      </View>
     </View>
+    {infoText && (
+      <InfoTooltip
+        visible={infoVisible}
+        testID={infoTestId ? `tooltip-${infoTestId}` : undefined}
+        text={infoText}
+      />
+    )}
   </View>
 );
 
@@ -148,9 +236,22 @@ export const StatsModal = ({
   onRefresh
 }) => {
   const { theme } = useMaterial();
+  const [activeTooltip, setActiveTooltip] = useState(null);
 
-  const signal = stats && typeof stats.wifiRSSI === 'number' ? getSignalQuality(stats.wifiRSSI) : null;
-  const heapStatus = stats && typeof stats.freeHeap === 'number' ? getHeapStatus(stats.freeHeap) : null;
+  const toggleTooltip = (key) => {
+    setActiveTooltip((prev) => (prev === key ? null : key));
+  };
+
+  const signal = stats && typeof stats.wifiRSSI === 'number' && stats.wifiRSSI !== 0
+    ? getSignalQuality(stats.wifiRSSI)
+    : null;
+  const heapStatus = stats && typeof stats.freeHeap === 'number'
+    ? getHeapStatus(stats.freeHeap)
+    : null;
+
+  // Điều kiện kích hoạt Warning Boxes
+  const isRssiWeak = stats && typeof stats.wifiRSSI === 'number' && stats.wifiRSSI !== 0 && stats.wifiRSSI <= -71;
+  const isHeapCritical = stats && typeof stats.freeHeap === 'number' && stats.freeHeap <= 10000;
 
   return (
     <Modal
@@ -196,6 +297,24 @@ export const StatsModal = ({
               </View>
             ) : (
               <>
+                {/* Warning Box cho RAM Nguy cấp */}
+                <WarningBox
+                  visible={isHeapCritical}
+                  type="danger"
+                  testID="warning-box-heap"
+                  title="🚨 Cảnh báo RAM nguy cấp"
+                  message={`Bộ nhớ RAM cực thấp (${(stats.freeHeap / 1024).toFixed(1)} KB ≤ 10 KB). ESP32 có nguy cơ bị tràn bộ nhớ hoặc tự khởi động lại.`}
+                />
+
+                {/* Warning Box cho Tín hiệu WiFi Yếu */}
+                <WarningBox
+                  visible={isRssiWeak}
+                  type="warn"
+                  testID="warning-box-rssi"
+                  title={`⚠️ Tín hiệu WiFi ${signal?.label.includes('Rất') ? 'rất yếu' : 'yếu'} (${stats.wifiRSSI} dBm)`}
+                  message="Khoảng cách xa hoặc có vật cản gây suy giảm tín hiệu. Hãy di chuyển lại gần ESP32 để đảm bảo kết nối ổn định."
+                />
+
                 {/* 1. Phần cứng & Bộ nhớ */}
                 <View style={styles.sectionCard}>
                   <Text style={styles.sectionHeader}>⚙️ Tài nguyên hệ thống</Text>
@@ -207,6 +326,10 @@ export const StatsModal = ({
                         : `${stats.freeHeap} bytes`
                     }
                     valueColor={heapStatus?.color}
+                    onToggleInfo={() => toggleTooltip('heap')}
+                    infoVisible={activeTooltip === 'heap'}
+                    infoTestId="heap"
+                    infoText="Bộ nhớ RAM động (Free Heap) của ESP32. Nếu RAM xuống dưới 10KB, ESP32 có nguy cơ sập luồng; dưới 5KB sẽ tự khởi động lại để bảo vệ phần cứng."
                   />
                   {signal && (
                     <StatRow
@@ -214,6 +337,10 @@ export const StatsModal = ({
                       value={`${stats.wifiRSSI} dBm (${signal.label})`}
                       valueColor={signal.color}
                       icon={signal.icon}
+                      onToggleInfo={() => toggleTooltip('rssi')}
+                      infoVisible={activeTooltip === 'rssi'}
+                      infoTestId="rssi"
+                      infoText="Chỉ số cường độ tín hiệu sóng WiFi nhận được (dBm). Càng gần 0 sóng càng mạnh. Mức trên -60 dBm là tối ưu, dưới -70 dBm sóng bắt đầu yếu."
                     />
                   )}
                   <StatRow
@@ -223,7 +350,11 @@ export const StatsModal = ({
                 </View>
 
                 {/* 2. Uptime Progress Bar */}
-                <UptimeBar uptimeSeconds={stats.uptime} />
+                <UptimeBar
+                  uptimeSeconds={stats.uptime}
+                  onToggleInfo={() => toggleTooltip('uptime')}
+                  showInfo={activeTooltip === 'uptime'}
+                />
 
                 {/* 3. Chi tiết Cảm biến */}
                 <SensorStatus sensors={sensors} />
@@ -307,6 +438,44 @@ const styles = StyleSheet.create({
   modalBody: {
     marginBottom: 16
   },
+  warningBox: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1.2,
+    marginBottom: 12
+  },
+  warningTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4
+  },
+  warningMessage: {
+    fontSize: 12,
+    lineHeight: 16
+  },
+  tooltipContainer: {
+    backgroundColor: '#374151',
+    padding: 10,
+    borderRadius: 6,
+    marginVertical: 4
+  },
+  tooltipText: {
+    color: '#f9fafb',
+    fontSize: 11.5,
+    lineHeight: 16
+  },
+  labelWithInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  infoBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 2
+  },
+  infoBadgeText: {
+    fontSize: 12
+  },
   sectionCard: {
     backgroundColor: '#f8fafc',
     padding: 12,
@@ -325,11 +494,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: '#334155'
   },
+  statRowWrapper: {
+    paddingVertical: 4
+  },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5
+    alignItems: 'center'
   },
   statLabel: {
     fontSize: 13,
