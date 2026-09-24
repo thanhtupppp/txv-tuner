@@ -178,14 +178,20 @@ export function useTemperatures() {
     };
   }, [isDemoMode, esp32Ip]);
 
+  const [statsLoading, setStatsLoading] = useState(false);
+
   // Định kỳ lấy thông số /api/stats của ESP32 mỗi 60s
   useEffect(() => {
     if (isDemoMode) {
       setEsp32Stats({
         freeHeap: 198400,
-        uptime: data.uptime || 120,
+        uptime: data.uptime || 1240,
         wifiRSSI: -45,
-        clientConnected: true
+        clientConnected: true,
+        wifiSSID: 'TuSmart-TXV-Tuner',
+        wifiIP: '192.168.4.1',
+        wifiGateway: '192.168.4.1',
+        sensorCount: 3
       });
       return;
     }
@@ -213,7 +219,40 @@ export function useTemperatures() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [isDemoMode, connectionStatus, esp32Ip]);
+  }, [isDemoMode, connectionStatus, esp32Ip, data.uptime]);
+
+  const refreshStats = useCallback(async () => {
+    if (isDemoMode) {
+      setStatsLoading(true);
+      setEsp32Stats((prev) => ({
+        freeHeap: 198400,
+        uptime: (prev?.uptime || 1240) + 10,
+        wifiRSSI: -45,
+        clientConnected: true,
+        wifiSSID: 'TuSmart-TXV-Tuner',
+        wifiIP: '192.168.4.1',
+        wifiGateway: '192.168.4.1',
+        sensorCount: 3,
+        ...prev
+      }));
+      setStatsLoading(false);
+      return;
+    }
+
+    setStatsLoading(true);
+    try {
+      const stats = await fetchEsp32Stats(esp32Ip, 3000);
+      if (stats) {
+        setEsp32Stats((prev) => ({
+          ...prev,
+          ...stats
+        }));
+      }
+      return stats;
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [isDemoMode, esp32Ip]);
 
   const offlineSensors = useMemo(() => {
     return (data?.sensors || []).filter((s) => !s.online);
@@ -227,6 +266,8 @@ export function useTemperatures() {
     reconnectAttempt,
     heartbeatInfo,
     esp32Stats,
+    statsLoading,
+    refreshStats,
     offlineSensors,
     reconnect,
     isDemoMode,

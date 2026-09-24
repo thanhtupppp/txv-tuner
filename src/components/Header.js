@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { InstrumentIcon, MetalFace, SkeuoButton, SkeuoInput, useMaterial, SkeuoSwitch, SkeuoLed } from './SkeuoKit';
+import { StatsModal } from './StatsModal';
 
 // Regex kiểm tra IPv4 chuẩn (hỗ trợ kèm port :8080)
 const IPV4_REGEX = /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?::\d{1,5})?$/;
@@ -32,6 +33,9 @@ export function Header({
   saveEsp32Ip,
   reconnect,
   esp32Stats = null,
+  statsLoading = false,
+  refreshStats,
+  sensors = [],
   flat,
   setFlat,
 }) {
@@ -39,6 +43,7 @@ export function Header({
   const { width, fontScale } = useWindowDimensions();
   const compact = width / fontScale < 360;
   const [modalVisible, setModalVisible] = useState(false);
+  const [statsModalVisible, setStatsModalVisible] = useState(false);
   const [tempIp, setTempIp] = useState(esp32Ip);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -102,6 +107,13 @@ export function Header({
             >
               <InstrumentIcon name={themeMode === 'dark' ? 'sun' : 'moon'} color={theme.ink} />
             </SkeuoButton>
+            <SkeuoButton
+              testID="header-stats-btn"
+              onPress={() => setStatsModalVisible(true)}
+              accessibilityLabel="Xem thống kê phần cứng ESP32"
+            >
+              <InstrumentIcon name="chart" color={theme.ink} />
+            </SkeuoButton>
             <SkeuoButton onPress={openSettings} accessibilityLabel="Cài đặt kết nối và giao diện">
               <InstrumentIcon name="settings" color={theme.ink} />
             </SkeuoButton>
@@ -154,7 +166,20 @@ export function Header({
               {!!error && <Text accessibilityRole="alert" style={{ color: theme.danger, marginTop: 8 }}>{error}</Text>}
               {esp32Stats && (
                 <View testID="esp32-stats-card" style={[styles.statsBox, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
-                  <Text style={[styles.statsTitle, { color: theme.ink }]}>📊 Trạng thái phần cứng ESP32</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={[styles.statsTitle, { color: theme.ink, marginBottom: 0 }]}>📊 Trạng thái ESP32</Text>
+                    <SkeuoButton
+                      testID="header-open-stats-detail-btn"
+                      onPress={() => {
+                        setModalVisible(false);
+                        setStatsModalVisible(true);
+                      }}
+                      style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                      accessibilityLabel="Xem chi tiết thông số ESP32"
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.accent }}>Chi tiết ➔</Text>
+                    </SkeuoButton>
+                  </View>
                   <View style={styles.statsGrid}>
                     <Text style={[styles.statsItem, { color: theme.inkMuted }]}>
                       RAM: <Text style={{ color: esp32Stats.freeHeap < 10000 ? theme.danger : theme.optimal, fontWeight: '700' }}>
@@ -198,6 +223,14 @@ export function Header({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <StatsModal
+        visible={statsModalVisible}
+        onClose={() => setStatsModalVisible(false)}
+        stats={esp32Stats}
+        sensors={sensors}
+        loading={statsLoading}
+        onRefresh={refreshStats}
+      />
     </View>
   );
 }

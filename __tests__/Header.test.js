@@ -206,5 +206,55 @@ describe('Header Component Unit Tests', () => {
       expect(mockSave).toHaveBeenCalledWith('192.168.1.200');
       expect(queryByText('Cài đặt thiết bị')).toBeNull();
     });
+
+    it('opens StatsModal when stats button in header is pressed', async () => {
+      const mockStats = {
+        freeHeap: 45000,
+        uptime: 120,
+        wifiRSSI: -50,
+        wifiSSID: 'TuSmart-TXV-Tuner'
+      };
+      const { getByTestId, getByText } = await renderWithMaterial(
+        <Header {...defaultProps} esp32Stats={mockStats} />
+      );
+
+      const statsBtn = getByTestId('header-stats-btn');
+      await act(async () => {
+        fireEvent.press(statsBtn);
+      });
+
+      expect(getByText(/Trạng thái ESP32 \(System Stats\)/)).toBeTruthy();
+      expect(getByText(/TuSmart-TXV-Tuner/)).toBeTruthy();
+    });
+
+    it('displays hardware stats card in settings modal and opens detail modal', async () => {
+      const mockStats = {
+        freeHeap: 8000,
+        uptime: 90,
+        wifiRSSI: -65,
+        wifiSSID: 'TuSmart-TXV-Tuner'
+      };
+      const { getByLabelText, getByTestId, getByText } = await renderWithMaterial(
+        <Header {...defaultProps} esp32Stats={mockStats} />
+      );
+
+      // Open settings
+      const settingsBtn = getByLabelText('Cài đặt kết nối và giao diện');
+      await act(async () => {
+        fireEvent.press(settingsBtn);
+      });
+
+      expect(getByTestId('esp32-stats-card')).toBeTruthy();
+      expect(getByText(/7.8 KB/)).toBeTruthy();
+
+      // Click detail button
+      const detailBtn = getByTestId('header-open-stats-detail-btn');
+      await act(async () => {
+        fireEvent.press(detailBtn);
+      });
+
+      expect(getByText(/Trạng thái ESP32 \(System Stats\)/)).toBeTruthy();
+    });
   });
 });
+

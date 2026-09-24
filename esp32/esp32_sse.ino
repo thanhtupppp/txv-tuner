@@ -48,11 +48,15 @@ void setup() {
   
   // Endpoint Thống kê trạng thái ESP32
   server.on("/api/stats", HTTP_GET, []() {
-    DynamicJsonDocument doc(256);
+    DynamicJsonDocument doc(384);
     doc["freeHeap"] = ESP.getFreeHeap();
     doc["uptime"] = millis() / 1000;
     doc["clientConnected"] = (sseClient && sseClient.connected());
     doc["wifiRSSI"] = WiFi.RSSI();
+    doc["wifiSSID"] = AP_SSID;
+    doc["wifiIP"] = WiFi.softAPIP().toString();
+    doc["wifiGateway"] = WiFi.softAPIP().toString();
+    doc["sensorCount"] = sensorCount;
     
     String json;
     serializeJson(doc, json);
