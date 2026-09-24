@@ -42,3 +42,6 @@ yarn-error.*
 
 # Local UI verification build
 dist-skeuo/
+
+# Jest coverage
+coverage/

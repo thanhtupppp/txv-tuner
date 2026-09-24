@@ -1,5 +1,8 @@
 import { Platform } from 'react-native';
 import { startNetworkMonitoring } from './networkMonitor';
+import { normalizeTelemetry } from '../domain/telemetry/normalizeTelemetry';
+import { requestEsp32 } from './esp32Request';
+import { normalizeEsp32Error } from './esp32Errors';
 
 const LOG_PREFIX = '[ESP32]';
 
@@ -83,6 +86,7 @@ export function subscribeEsp32Stream({
   let isNetworkOnline = true;
   let wasConnectedBefore = false;
   let latestNetState = { isConnected: true, hasInternet: true };
+  let hasWarnedLowHeap = false;
 
   const url = buildStreamUrl(ip);
 
@@ -207,8 +211,10 @@ export function subscribeEsp32Stream({
           const raw = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
           const payload = {
             ...raw,
-            receivedAt: Date.now()
+            receivedAt: Date.now(),
           };
+
+          const normalized = normalizeTelemetry(payload);
 
           // Kiểm tra và cảnh báo nếu có cảm biến bị offline
           const offlineSensors = (payload.sensors || []).filter(s => !s.online);
@@ -233,7 +239,15 @@ export function subscribeEsp32Stream({
             offlineCount: offlineSensors.length
           });
 
-          if (onData) onData(payload);
+          if (onData) {
+            onData({
+              ...normalized,
+              sensors: normalized.sensors.map((sensor) => ({
+                ...sensor,
+                temp: sensor.temperatureC,
+              })),
+            });
+          }
         } catch (err) {
           console.error(`${LOG_PREFIX} Parse error for temperatures:`, err);
         }
@@ -250,8 +264,15 @@ export function subscribeEsp32Stream({
             receivedAt: Date.now()
           };
 
-          if (typeof hbPayload.freeHeap === 'number' && hbPayload.freeHeap < 10000) {
-            console.warn(`${LOG_PREFIX} Low heap warning: ${hbPayload.freeHeap} bytes`);
+          if (typeof hbPayload.freeHeap === 'number') {
+            if (hbPayload.freeHeap < 10000) {
+              if (!hasWarnedLowHeap) {
+                console.warn(`${LOG_PREFIX} Low heap warning: ${hbPayload.freeHeap} bytes`);
+                hasWarnedLowHeap = true;
+              }
+            } else {
+              hasWarnedLowHeap = false;
+            }
           }
 
           reconnectAttempts = 0;
@@ -334,6 +355,7 @@ export function subscribeEsp32Stream({
     console.log(`${LOG_PREFIX} Manual reconnect triggered by user`);
     isClosed = false;
     reconnectAttempts = 0;
+    hasWarnedLowHeap = false;
     clearTimeout(reconnectTimer);
     clearTimeout(watchdogTimer);
     if (es && typeof es.close === 'function') {
@@ -356,21 +378,20 @@ export function subscribeEsp32Stream({
  * Fetch một lần qua HTTP REST (dự phòng cho Polling hoặc Health Check)
  */
 export async function fetchEsp32Temperatures(ip, timeoutMs = 3000) {
-  let host = String(ip).trim().replace(/^https?:\/\//i, '');
-  host = host.split('/')[0];
+  const host = String(ip).trim().replace(/^https?:\/\//i, '').split('/')[0];
   const url = `http://${host}/api/temperatures`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    clearTimeout(timer);
-    throw e;
+    const { data } = await requestEsp32(url, {
+      timeoutMs,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    return data;
+  } catch (error) {
+    throw normalizeEsp32Error(error);
   }
 }
 
@@ -378,20 +399,19 @@ export async function fetchEsp32Temperatures(ip, timeoutMs = 3000) {
  * Lấy thông số hệ thống của ESP32 (freeHeap, uptime, wifiRSSI, clientConnected)
  */
 export async function fetchEsp32Stats(ip, timeoutMs = 3000) {
-  let host = String(ip).trim().replace(/^https?:\/\//i, '');
-  host = host.split('/')[0];
+  const host = String(ip).trim().replace(/^https?:\/\//i, '').split('/')[0];
   const url = `http://${host}/api/stats`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    clearTimeout(timer);
-    throw e;
+    const { data } = await requestEsp32(url, {
+      timeoutMs,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    return data;
+  } catch (error) {
+    throw normalizeEsp32Error(error);
   }
 }

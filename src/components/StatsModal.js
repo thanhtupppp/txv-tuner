@@ -204,8 +204,12 @@ export const SensorStatus = ({ sensors = [] }) => {
       ) : (
         sensors.map((sensor, index) => {
           const isOnline = Boolean(sensor.online);
-          const tempText = isOnline && typeof sensor.temp === 'number'
-            ? `${sensor.temp.toFixed(1)}°C`
+          const sensorTemp = sensor.temperatureC ?? sensor.temp;
+
+          const tempText = isOnline
+            && typeof sensorTemp === 'number'
+            && Number.isFinite(sensorTemp)
+            ? `${sensorTemp.toFixed(1)}°C`
             : 'Mất kết nối (Offline)';
           return (
             <View
