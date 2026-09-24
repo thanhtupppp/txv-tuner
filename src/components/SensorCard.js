@@ -17,8 +17,9 @@ export function SensorCard({ sensor, channelIndex = 0, style }) {
   const ledState = isOnline ? 'ok' : 'error';
   const ledColor = isOnline ? channelColor : theme.danger;
 
-  const tempVal = typeof sensor?.temp === 'number' && Number.isFinite(sensor.temp)
-    ? sensor.temp.toFixed(1)
+  const sensorTemp = sensor?.temperatureC ?? sensor?.temp;
+  const tempVal = typeof sensorTemp === 'number' && Number.isFinite(sensorTemp)
+    ? sensorTemp.toFixed(1)
     : '--';
 
   const a11yLabel = `${sensor?.name || 'Cảm biến'}: ${

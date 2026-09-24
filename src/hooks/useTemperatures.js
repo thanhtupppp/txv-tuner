@@ -16,9 +16,9 @@ export function useTemperatures() {
   
   const [data, setData] = useState({
     sensors: [
-      { id: 0, name: 'T1 Vào dàn', temp: -22.7, online: true },
-      { id: 1, name: 'T2 Ra dàn', temp: -30.1, online: true },
-      { id: 2, name: 'T3 Bầu TXV', temp: -19.9, online: true }
+      { id: 0, name: 'T1 Vào dàn', temp: -22.7, temperatureC: -22.7, online: true },
+      { id: 1, name: 'T2 Ra dàn', temp: -30.1, temperatureC: -30.1, online: true },
+      { id: 2, name: 'T3 Bầu TXV', temp: -19.9, temperatureC: -19.9, online: true }
     ],
     deltaAir: 7.4,
     uptime: 1240
@@ -57,16 +57,19 @@ export function useTemperatures() {
     const interval = setInterval(() => {
       setData((prev) => {
         // Biến thiên ngẫu nhiên nhẹ ±0.15°C
-        const t1 = Number((prev.sensors[0].temp + (Math.random() - 0.5) * 0.2).toFixed(1));
-        const t2 = Number((prev.sensors[1].temp + (Math.random() - 0.5) * 0.2).toFixed(1));
-        const t3 = Number((prev.sensors[2].temp + (Math.random() - 0.5) * 0.3).toFixed(1));
+        const s0 = prev.sensors[0].temperatureC ?? prev.sensors[0].temp;
+        const s1 = prev.sensors[1].temperatureC ?? prev.sensors[1].temp;
+        const s2 = prev.sensors[2].temperatureC ?? prev.sensors[2].temp;
+        const t1 = Number((s0 + (Math.random() - 0.5) * 0.2).toFixed(1));
+        const t2 = Number((s1 + (Math.random() - 0.5) * 0.2).toFixed(1));
+        const t3 = Number((s2 + (Math.random() - 0.5) * 0.3).toFixed(1));
         const deltaAir = Number((t1 - t2).toFixed(1));
 
         const updated = {
           sensors: [
-            { id: 0, name: 'T1 Vào dàn', temp: t1, online: true },
-            { id: 1, name: 'T2 Ra dàn', temp: t2, online: true },
-            { id: 2, name: 'T3 Bầu TXV', temp: t3, online: true }
+            { id: 0, name: 'T1 Vào dàn', temp: t1, temperatureC: t1, online: true },
+            { id: 1, name: 'T2 Ra dàn', temp: t2, temperatureC: t2, online: true },
+            { id: 2, name: 'T3 Bầu TXV', temp: t3, temperatureC: t3, online: true }
           ],
           deltaAir,
           uptime: (prev.uptime || 0) + 2
@@ -104,9 +107,9 @@ export function useTemperatures() {
       setLastUpdate(payload.receivedAt || Date.now());
       setReconnectAttempt(0);
 
-      const s0 = payload?.sensors?.[0]?.temp;
-      const s1 = payload?.sensors?.[1]?.temp;
-      const s2 = payload?.sensors?.[2]?.temp;
+      const s0 = payload?.sensors?.[0]?.temperatureC ?? payload?.sensors?.[0]?.temp;
+      const s1 = payload?.sensors?.[1]?.temperatureC ?? payload?.sensors?.[1]?.temp;
+      const s2 = payload?.sensors?.[2]?.temperatureC ?? payload?.sensors?.[2]?.temp;
       if (typeof s0 === 'number' || typeof s1 === 'number' || typeof s2 === 'number') {
         setHistory((h) => [
           ...h.slice(-29),
