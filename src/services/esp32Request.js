@@ -27,19 +27,14 @@ function combineSignals(externalSignal, timeoutSignal) {
   return controller.signal;
 }
 
-async function parseResponseBody(response) {
+async function readBody(response) {
   const text = await response.text();
-
-  if (!text) return null;
+  if (!text) return { text: '', data: null };
 
   try {
-    return JSON.parse(text);
+    return { text, data: JSON.parse(text) };
   } catch (error) {
-    throw createEsp32Error(
-      ESP32_ERROR_CODES.INVALID_JSON,
-      'ESP32 trả về dữ liệu JSON không hợp lệ',
-      { retryable: false, cause: error },
-    );
+    return { text, data: null, parseError: error };
   }
 }
 
@@ -54,10 +49,7 @@ export async function requestEsp32(
   } = {},
 ) {
   const timeoutController = new AbortController();
-  const timeoutId = setTimeout(
-    () => timeoutController.abort(),
-    timeoutMs,
-  );
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
   const signal = combineSignals(externalSignal, timeoutController.signal);
 
   try {
@@ -66,10 +58,7 @@ export async function requestEsp32(
     try {
       response = await fetch(url, {
         method,
-        headers: {
-          Accept: 'application/json',
-          ...headers,
-        },
+        headers: { Accept: 'application/json', ...headers },
         body,
         signal,
       });
@@ -81,11 +70,10 @@ export async function requestEsp32(
           { retryable: true, cause: error },
         );
       }
-
       throw normalizeEsp32Error(error);
     }
 
-    const data = await parseResponseBody(response);
+    const bodyResult = await readBody(response);
 
     if (!response.ok) {
       throw createEsp32Error(
@@ -94,13 +82,21 @@ export async function requestEsp32(
         {
           status: response.status,
           retryable: response.status >= 500,
-          cause: data,
+          cause: bodyResult.data ?? bodyResult.text,
         },
       );
     }
 
+    if (bodyResult.parseError) {
+      throw createEsp32Error(
+        ESP32_ERROR_CODES.INVALID_JSON,
+        'ESP32 trả về dữ liệu JSON không hợp lệ',
+        { retryable: false, cause: bodyResult.parseError },
+      );
+    }
+
     return {
-      data,
+      data: bodyResult.data,
       status: response.status,
       headers: response.headers,
     };
