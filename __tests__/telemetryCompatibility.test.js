@@ -18,8 +18,8 @@ describe('telemetry compatibility audit', () => {
       sensors: [{ id: 0, name: 'T1', temperatureC: -12.25, online: true }],
     }, now);
 
-    expect(result.sensors[0].temperatureC).toBeNull();
-    expect(result.sensors[0].valid).toBe(false);
+    expect(result.sensors[0].temperatureC).toBe(-12.25);
+    expect(result.sensors[0].valid).toBe(true);
   });
 
   it('keeps legacy temp compatibility', () => {
